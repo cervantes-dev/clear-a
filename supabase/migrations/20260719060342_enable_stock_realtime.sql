@@ -1,0 +1,1 @@
+alter publication supabase_realtime add table menu_item_daily_stock;
