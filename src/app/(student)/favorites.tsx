@@ -88,17 +88,9 @@ export default function FavoritesScreen() {
         className="bg-primary px-5 pb-8 flex-row items-center justify-between"
         style={{ paddingTop: insets.top + 16 }}
       >
-        <View className="flex-row items-center">
-          <TouchableOpacity
-            className="w-10 h-10 rounded-full items-center justify-center mr-1 -ml-2"
-            onPress={() => router.back()}
-          >
-            <Ionicons name="chevron-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          <View>
-            <Text className="text-white text-2xl font-bold">Favorites</Text>
-            <Text className="text-white/80 text-sm mt-1">Your saved items</Text>
-          </View>
+        <View>
+          <Text className="text-white text-2xl font-bold">Favorites</Text>
+          <Text className="text-white/80 text-sm mt-1">Your saved items</Text>
         </View>
 
         <View ref={cartIconRef} collapsable={false}>

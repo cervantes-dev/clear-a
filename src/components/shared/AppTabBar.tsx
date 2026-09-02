@@ -13,7 +13,8 @@ type AppTabBarProps = {
 const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   dashboard: "home-outline",
   home: "home-outline",
-  orders: "bag-outline",
+  orders: "receipt-outline",
+  favorites: "heart-outline",
   menu: "restaurant-outline",
   inventory: "cube-outline",
   profile: "person-outline",
@@ -23,6 +24,7 @@ const LABELS: Record<string, string> = {
   dashboard: "Dashboard",
   home: "Home",
   orders: "Orders",
+  favorites: "Favorites",
   menu: "Menu",
   inventory: "Inventory",
   profile: "Profile",
@@ -95,9 +97,8 @@ export default function AppTabBar({ state, navigation }: AppTabBarProps) {
       >
         <Ionicons name={icon} size={21} color={isActive ? "#800020" : "#999"} />
         <Text
-          className={`text-[11px] mt-0.5 ${
-            isActive ? "text-primary font-bold" : "text-text opacity-50"
-          }`}
+          className={`text-[11px] mt-0.5 ${isActive ? "text-primary font-bold" : "text-text opacity-50"
+            }`}
         >
           {label}
         </Text>
@@ -143,7 +144,7 @@ export default function AppTabBar({ state, navigation }: AppTabBarProps) {
         onPress={() => navigateTo(scanRoute!.name, scanRoute!.key)}
         style={{
           position: "absolute",
-         top: -(FAB_SIZE / 2) + 12,
+          top: -(FAB_SIZE / 2) + 12,
           left: "50%",
           marginLeft: -FAB_SIZE / 2,
           width: FAB_SIZE,

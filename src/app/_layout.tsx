@@ -6,6 +6,8 @@ import "../global.css";
 import { getCurrentUser } from "../services/auth";
 import { supabase } from "../services/supabase";
 import { useAuthStore } from "../store/authStore";
+import { useCartStore } from "../store/cartStore";
+import { useFavoritesStore } from "../store/favoritesStore";
 
 export default function RootLayout() {
   const { user, isLoading, setUser, setLoading } = useAuthStore();
@@ -45,6 +47,27 @@ export default function RootLayout() {
 
     return () => listener.subscription.unsubscribe();
   }, []);
+
+  // Load/clear favorites whenever the logged-in user changes.
+  // Runs on login, logout, and account switch on the same device.
+  useEffect(() => {
+    if (user && user.role === "student") {
+      useFavoritesStore.getState().loadFavorites();
+    } else {
+      useFavoritesStore.getState().reset();
+    }
+  }, [user?.id]);
+
+  // Clear the cart whenever the logged-in user changes (logout, or a
+  // different student logging in on the same device). Cart is never meant
+  // to persist server-side across sessions -- unlike favorites, there's no
+  // load step, it should just start empty for whoever's now signed in.
+  // Without this, a shared/lab device could carry one student's unpaid
+  // cart items into the next student's session and get checked out
+  // against the wrong account.
+  useEffect(() => {
+    useCartStore.getState().clear();
+  }, [user?.id]);
 
   // Redirect logic, runs whenever auth state or route segment changes
   useEffect(() => {
