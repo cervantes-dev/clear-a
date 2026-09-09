@@ -14,8 +14,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import AuthInput from "../../components/ui/AuthInput";
 import PrimaryButton from "../../components/ui/PrimaryButton";
 import WaveHeader from "../../components/ui/WaveHeader";
-import { signUp } from "../../services/auth";
-import { useAuthStore } from "../../store/authStore";
+import { checkEmailRegistration, startSignUp } from "../../services/auth";
+
+const LRN_PATTERN = /^\d{12}$/;
 
 function mapAuthError(message?: string) {
   if (!message) return "";
@@ -27,19 +28,26 @@ function mapAuthError(message?: string) {
 
 export default function Register() {
   const [name, setName] = useState("");
-  const [studentId, setStudentId] = useState("");
+  const [lrn, setLrn] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [agreed, setAgreed] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const setUser = useAuthStore((s) => s.setUser);
+
+  const handleLrnChange = (text: string) => {
+    setLrn(text.replace(/\D/g, ""));
+  };
 
   const handleRegister = async () => {
     setError("");
-    if (!name || !studentId || !email || !password) {
+    if (!name || !lrn || !email || !password) {
       setError("Please fill in all fields.");
+      return;
+    }
+    if (!LRN_PATTERN.test(lrn)) {
+      setError("LRN must be exactly 12 digits.");
       return;
     }
     if (password.length < 6) {
@@ -57,9 +65,22 @@ export default function Register() {
 
     setLoading(true);
     try {
-      const user = await signUp(name.trim(), email.trim(), password, studentId.trim());
-      setUser(user);
-      router.replace("/(student)/home");
+      const trimmedEmail = email.trim();
+
+      // Pre-check catches both "already registered manually" and "already
+      // registered via Google" before wasting an OTP email on a signup
+      // that can never succeed. Unconfirmed existing accounts (an
+      // abandoned prior attempt) are allowed through -- startSignUp()
+      // naturally resends the code for those instead of erroring.
+      const check = await checkEmailRegistration(trimmedEmail);
+      if (check.existsAlready && check.confirmed) {
+        setError("Email address already taken.");
+        setLoading(false);
+        return;
+      }
+
+      await startSignUp(name.trim(), trimmedEmail, password, lrn);
+      router.push({ pathname: "/(auth)/verify-otp", params: { email: trimmedEmail } });
     } catch (e: any) {
       setError(mapAuthError(e.message));
     } finally {
@@ -79,12 +100,9 @@ export default function Register() {
           contentContainerStyle={{ flexGrow: 1 }}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Wave header with back button + title */}
-          {/* Wave header (background shape only) */}
           <View style={{ position: "relative" }}>
             <WaveHeader height={130} />
 
-            {/* Title row - fully independent of header size, always pinned here */}
             <View
               style={{
                 position: "absolute",
@@ -125,9 +143,11 @@ export default function Register() {
             <View className="w-full">
               <AuthInput
                 icon="card-outline"
-                placeholder="Student ID"
-                value={studentId}
-                onChangeText={setStudentId}
+                placeholder="LRN (12-digit Learner Reference Number)"
+                value={lrn}
+                onChangeText={handleLrnChange}
+                keyboardType="number-pad"
+                maxLength={12}
               />
               <AuthInput
                 icon="person-outline"
@@ -173,9 +193,8 @@ export default function Register() {
                 className="flex-row items-start mb-5"
               >
                 <View
-                  className={`w-5 h-5 rounded border items-center justify-center mr-2 mt-0.5 ${
-                    agreed ? "bg-primary border-primary" : "border-border bg-card"
-                  }`}
+                  className={`w-5 h-5 rounded border items-center justify-center mr-2 mt-0.5 ${agreed ? "bg-primary border-primary" : "border-border bg-card"
+                    }`}
                 >
                   {agreed && <Ionicons name="checkmark" size={14} color="#fff" />}
                 </View>

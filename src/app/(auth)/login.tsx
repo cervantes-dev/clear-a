@@ -14,13 +14,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import AuthInput from "../../components/ui/AuthInput";
 import CurvedHeader from "../../components/ui/CurvedHeader";
 import PrimaryButton from "../../components/ui/PrimaryButton";
-import { signIn } from "../../services/auth";
+import { resendSignupOtp, signIn, signInWithGoogle } from "../../services/auth";
 import { useAuthStore } from "../../store/authStore";
 
 function mapAuthError(message?: string) {
   if (!message) return "";
   if (message.includes("Invalid login credentials")) return "Incorrect email or password.";
-  if (message.includes("Email not confirmed")) return "Please confirm your email before logging in.";
   return message;
 }
 
@@ -29,6 +28,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const setUser = useAuthStore((s) => s.setUser);
 
   const handleLogin = async () => {
@@ -43,9 +43,33 @@ export default function Login() {
       setUser(user);
       router.replace(user.role === "staff" ? "/(staff)/dashboard" : "/(student)/home");
     } catch (e: any) {
+      if (e.message?.includes("Email not confirmed")) {
+        // They have a valid account, just never finished OTP verification --
+        // send them there instead of just showing an error.
+        try {
+          await resendSignupOtp(email.trim());
+        } catch {
+          // verify-otp screen has its own resend control if this fails
+        }
+        router.push({ pathname: "/(auth)/verify-otp", params: { email: email.trim() } });
+        return;
+      }
       setError(mapAuthError(e.message));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setError("");
+    setGoogleLoading(true);
+    try {
+      const user = await signInWithGoogle();
+      setUser(user);
+    } catch (e: any) {
+      setError(e.message ?? "Couldn't sign in with Google.");
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -61,7 +85,6 @@ export default function Login() {
           contentContainerStyle={{ flexGrow: 1 }}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Curved header */}
           <CurvedHeader height={120} />
 
           <View className="items-center mt-2 px-6">
@@ -110,10 +133,15 @@ export default function Login() {
                 <View className="flex-1 h-[1px] bg-border" />
               </View>
 
-              <Pressable className="flex-row items-center justify-center border border-border rounded-xl h-[50px] bg-card">
+              <Pressable
+                onPress={handleGoogleLogin}
+                disabled={googleLoading}
+                className="flex-row items-center justify-center border border-border rounded-xl h-[50px] bg-card"
+                style={{ opacity: googleLoading ? 0.6 : 1 }}
+              >
                 <AntDesign name="google" size={18} color="#DB4437" />
                 <Text className="ml-2 text-text font-medium">
-                  Continue with Google
+                  {googleLoading ? "Signing in..." : "Continue with Google"}
                 </Text>
               </Pressable>
 
@@ -129,4 +157,4 @@ export default function Login() {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
-} 
+}

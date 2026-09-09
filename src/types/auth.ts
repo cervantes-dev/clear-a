@@ -6,4 +6,6 @@ export interface AppUser {
   email: string;
   role: UserRole;
   studentId?: string;
+  lrn?: string;
+  createdAt?: string;
 }
