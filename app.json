@@ -31,9 +31,9 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#FBF5F6",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "resizeMode": "cover"
         }
       ],
       "expo-status-bar",
@@ -42,11 +42,22 @@
         {
           "visibility": "visible"
         }
-      ]
+      ],
+      "expo-web-browser",
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "expo-navigation-bar": {
+        "hidden": false
+      },
+      "eas": {
+        "projectId": "f86252cd-c721-4179-977a-ce17e6d31da0"
+      }
     }
   }
 }
