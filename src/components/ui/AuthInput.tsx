@@ -8,9 +8,10 @@ interface Props {
   value: string;
   onChangeText: (text: string) => void;
   secureTextEntry?: boolean;
-  keyboardType?: "default" | "email-address";
+  keyboardType?: "default" | "email-address" | "number-pad";
   autoCapitalize?: "none" | "words" | "sentences" | "characters";
   containerClassName?: string;
+  maxLength?: number;
 }
 
 export default function AuthInput({
@@ -22,6 +23,7 @@ export default function AuthInput({
   keyboardType = "default",
   autoCapitalize = "none",
   containerClassName,
+  maxLength,
 }: Props) {
   const [hidden, setHidden] = useState(!!secureTextEntry);
 
@@ -41,6 +43,7 @@ export default function AuthInput({
         secureTextEntry={hidden}
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
+        maxLength={maxLength}
       />
       {secureTextEntry && (
         <Pressable onPress={() => setHidden(!hidden)} hitSlop={8}>

@@ -38,9 +38,21 @@ export const useFavoritesStore = create<FavoritesState>((set, get) => ({
     try {
       if (wasFavorite) await removeFavorite(itemId);
       else await addFavorite(itemId);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to toggle favorite:", err);
-      // revert on failure
+
+      // 23505 = unique_violation. If we were trying to ADD and hit this,
+      // it means the item was already favorited server-side even though
+      // local state said otherwise (e.g. loadFavorites hadn't run yet, or
+      // it was favorited from another device). The DB is already in the
+      // state we wanted, so keep the optimistic "favorited" UI instead of
+      // reverting it back to unfavorited -- reverting here would be wrong,
+      // not just unnecessary.
+      if (!wasFavorite && err?.code === "23505") {
+        return;
+      }
+
+      // revert on any other failure
       set((state) => {
         const next = new Set(state.favoriteIds);
         if (wasFavorite) next.add(itemId);

@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
-import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Text, TouchableOpacity, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { cancelOrder } from "../../../services/order";
 import { Order, OrderStatus } from "../../../types/order";
+import CancelOrderModal from "./CancelOrderModal";
 import OrderProgressTracker from "./OrderProgressTracker";
 import PickupCountdown from "./PickupCountdown";
 
@@ -27,6 +28,7 @@ const STATUS_MESSAGES: Partial<Record<OrderStatus, string>> = {
 };
 
 export default function OrderCard({ order, highlighted }: Props) {
+  const [confirmVisible, setConfirmVisible] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const config = STATUS_CONFIG[order.status];
   const canCancel = order.status === "pending" || order.status === "preparing";
@@ -34,25 +36,18 @@ export default function OrderCard({ order, highlighted }: Props) {
   const showTracker = order.status !== "cancelled";
   const message = STATUS_MESSAGES[order.status];
 
-  const handleCancel = () => {
-    Alert.alert("Cancel this order?", "This can't be undone.", [
-      { text: "Keep order", style: "cancel" },
-      {
-        text: "Cancel order",
-        style: "destructive",
-        onPress: async () => {
-          setCancelling(true);
-          try {
-            await cancelOrder(order.id);
-          } catch (err: any) {
-            console.error("Failed to cancel order:", err);
-            Alert.alert("Couldn't cancel", err?.message ?? "Please try again.");
-          } finally {
-            setCancelling(false);
-          }
-        },
-      },
-    ]);
+  const handleConfirmCancel = async () => {
+    setCancelling(true);
+    try {
+      await cancelOrder(order.id);
+      setConfirmVisible(false);
+    } catch (err: any) {
+      console.error("Failed to cancel order:", err);
+      setConfirmVisible(false);
+      Alert.alert("Couldn't cancel", err?.message ?? "Please try again.");
+    } finally {
+      setCancelling(false);
+    }
   };
 
   return (
@@ -104,20 +99,20 @@ export default function OrderCard({ order, highlighted }: Props) {
 
       {canCancel && (
         <TouchableOpacity
-          onPress={handleCancel}
-          disabled={cancelling}
+          onPress={() => setConfirmVisible(true)}
           className="mt-3 flex-row items-center justify-center border border-danger rounded-full py-2"
         >
-          {cancelling ? (
-            <ActivityIndicator size="small" color="#D32F2F" />
-          ) : (
-            <>
-              <Ionicons name="close-circle-outline" size={16} color="#D32F2F" />
-              <Text className="text-danger text-sm font-semibold ml-1.5">Cancel Order</Text>
-            </>
-          )}
+          <Ionicons name="close-circle-outline" size={16} color="#D32F2F" />
+          <Text className="text-danger text-sm font-semibold ml-1.5">Cancel Order</Text>
         </TouchableOpacity>
       )}
+
+      <CancelOrderModal
+        visible={confirmVisible}
+        loading={cancelling}
+        onCancel={() => setConfirmVisible(false)}
+        onConfirm={handleConfirmCancel}
+      />
     </View>
   );
 }

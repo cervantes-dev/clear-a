@@ -3,14 +3,32 @@ import { Slot, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
 import { ActivityIndicator, Platform, View } from "react-native";
 import "../global.css";
+import { useCartSync } from "../hooks/useCartSync";
 import { getCurrentUser } from "../services/auth";
 import { supabase } from "../services/supabase";
 import { useAuthStore } from "../store/authStore";
+import { useFavoritesStore } from "../store/favoritesStore";
 
 export default function RootLayout() {
   const { user, isLoading, setUser, setLoading } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
+
+  // Loads the cart on login and keeps it synced live via realtime for as
+  // long as someone's signed in; resets local cart state on logout.
+  useCartSync(user?.id);
+
+  // Favorites weren't being loaded from the server at all -- favoriteIds
+  // started as an empty Set every launch, so toggling an item that was
+  // already favorited from a previous session tried to INSERT again and
+  // hit the unique constraint (23505). Load on login, clear on logout.
+  useEffect(() => {
+    if (user) {
+      useFavoritesStore.getState().loadFavorites();
+    } else {
+      useFavoritesStore.getState().reset();
+    }
+  }, [user?.id]);
 
   // Hide the Android system navigation bar on launch. On modern Android
   // (edge-to-edge enforced), the OS automatically handles temporary
