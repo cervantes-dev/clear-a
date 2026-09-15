@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
 import { Image, Modal, Pressable, Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MenuItem, MenuItemVariant } from "../../../types/menu";
 
 type SourceRect = { x: number; y: number; width: number; height: number };
@@ -24,6 +25,7 @@ export default function ItemDetailModal({
   onAddToCart,
   onOrderNow,
 }: Props) {
+  const insets = useSafeAreaInsets();
   const imageWrapperRef = useRef<View>(null);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -96,7 +98,7 @@ export default function ItemDetailModal({
             )}
           </View>
 
-          <View className="px-5 pt-4 pb-6">
+          <View className="px-5 pt-4" style={{ paddingBottom: Math.max(insets.bottom, 24) }}>
             <Text className="text-xl font-bold text-text">{item.name}</Text>
 
             {[item.categoryName, item.subcategoryName].filter(Boolean).length > 0 && (

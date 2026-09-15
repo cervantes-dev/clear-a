@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Animated, Easing, Image, Text, View } from "react-native";
+import { Animated, Easing, Text, View } from "react-native";
 import Svg, { Rect } from "react-native-svg";
 
 const BLADE_COUNT = 8;
@@ -61,57 +61,14 @@ function BladeSpinner({ size = 34, color = "#800020" }: { size?: number; color?:
   );
 }
 
-export default function LoadingScreen() {
-  const progress = useRef(new Animated.Value(0)).current;
+type Props = {
+  label?: string;
+};
 
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.timing(progress, {
-        toValue: 1,
-        duration: 1600,
-        easing: Easing.inOut(Easing.sin),
-        useNativeDriver: true,
-      })
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [progress]);
-
-  const translateY = progress.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0, -22, 0],
-  });
-
-  const rotateY = progress.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: ["-25deg", "25deg", "-25deg"],
-  });
-
-  const scale = progress.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [1, 1.08, 1],
-  });
-
+export default function LoadingScreen({ label = "LOADING" }: Props) {
   return (
     <View className="flex-1 items-center justify-center" style={{ backgroundColor: "#FBF1F2" }}>
-      <Animated.View
-        style={{
-          transform: [
-            { perspective: 800 },
-            { translateY },
-            { rotateY },
-            { scale },
-          ],
-        }}
-      >
-        <Image
-          source={require("../../../assets/images/logo.png")}
-          style={{ width: 130, height: 130 }}
-          resizeMode="contain"
-        />
-      </Animated.View>
-
-      <View className="flex-row items-center mt-10">
+      <View className="flex-row items-center">
         <BladeSpinner />
         <Text
           style={{
@@ -122,7 +79,7 @@ export default function LoadingScreen() {
             marginLeft: 10,
           }}
         >
-          LOADING
+          {label}
         </Text>
       </View>
     </View>

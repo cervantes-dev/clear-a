@@ -4,9 +4,9 @@ import { StatusBar } from "expo-status-bar";
 import { useRef, useState } from "react";
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import HomeMenuListItem from "../../components/student/home/HomeMenuListItem";
 import FlyingCartAnimation from "../../components/student/menu/FlyingCartAnimation";
 import ItemDetailModal from "../../components/student/menu/ItemDetailModal";
-import MenuGridCard from "../../components/student/menu/MenuGridCard";
 import { useStudentMenu } from "../../hooks/useStudentMenu";
 import { useCartStore } from "../../store/cartStore";
 import { useFavoritesStore } from "../../store/favoritesStore";
@@ -24,6 +24,8 @@ type FlightState = {
   source: SourceRect;
   target: { x: number; y: number };
 };
+
+const TAB_BAR_CLEARANCE = 64 + 40 + 24;
 
 export default function FavoritesScreen() {
   const router = useRouter();
@@ -80,6 +82,16 @@ export default function FavoritesScreen() {
     }
   };
 
+  // Same rule as Home: items with variants need a size/price choice, so
+  // open the detail modal instead of guessing which one to add.
+  const handleQuickAdd = (item: MenuItem) => {
+    if (item.variants.length > 0) {
+      openDetail(item);
+      return;
+    }
+    addItem(item, null, 1);
+  };
+
   return (
     <View className="flex-1 bg-background">
       <StatusBar style="light" />
@@ -88,9 +100,11 @@ export default function FavoritesScreen() {
         className="bg-primary px-5 pb-8 flex-row items-center justify-between"
         style={{ paddingTop: insets.top + 16 }}
       >
-        <View>
-          <Text className="text-white text-2xl font-bold">Favorites</Text>
-          <Text className="text-white/80 text-sm mt-1">Your saved items</Text>
+        <View className="flex-row items-center">
+          <View>
+            <Text className="text-white text-2xl font-bold">Favorites</Text>
+            <Text className="text-white/80 text-sm mt-1">Your saved items</Text>
+          </View>
         </View>
 
         <View ref={cartIconRef} collapsable={false}>
@@ -98,7 +112,7 @@ export default function FavoritesScreen() {
             className="w-11 h-11 rounded-full bg-white/15 items-center justify-center"
             onPress={() => router.push("/(student)/cart")}
           >
-            <Ionicons name="bag-outline" size={22} color="#fff" />
+            <Ionicons name="cart-outline" size={22} color="#fff" />
             {itemCount > 0 && (
               <View className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-danger items-center justify-center">
                 <Text className="text-white text-[10px] font-bold">{itemCount}</Text>
@@ -122,22 +136,24 @@ export default function FavoritesScreen() {
           </View>
         ) : (
           <ScrollView
-            contentContainerStyle={{ paddingTop: 20, paddingHorizontal: 20, paddingBottom: 24 }}
+            contentContainerStyle={{
+              paddingTop: 20,
+              paddingHorizontal: 20,
+              paddingBottom: insets.bottom + TAB_BAR_CLEARANCE,
+            }}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
           >
-            <View className="flex-row flex-wrap justify-between">
-              {favoriteItems.map((item) => (
-                <View key={item.id} className="mb-3">
-                  <MenuGridCard
-                    item={item}
-                    stockRemaining={stockMap[item.id]?.remainingQuantity ?? null}
-                    onPress={openDetail}
-                    isFavorite={true}
-                    onToggleFavorite={(i) => toggleFavorite(i.id)}
-                  />
-                </View>
-              ))}
-            </View>
+            {favoriteItems.map((item) => (
+              <HomeMenuListItem
+                key={item.id}
+                item={item}
+                stockRemaining={stockMap[item.id]?.remainingQuantity ?? null}
+                isFavorite={true}
+                onPress={openDetail}
+                onToggleFavorite={(i) => toggleFavorite(i.id)}
+                onQuickAdd={handleQuickAdd}
+              />
+            ))}
           </ScrollView>
         )}
       </View>
