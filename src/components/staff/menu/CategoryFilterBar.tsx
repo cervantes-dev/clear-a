@@ -1,4 +1,4 @@
-import { Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, Text, TouchableOpacity } from "react-native";
 import { Category } from "../../../types/menu";
 
 type Props = {
@@ -9,10 +9,15 @@ type Props = {
 
 export default function CategoryFilterBar({ categories, selectedId, onSelect }: Props) {
   return (
-    <View className="flex-row flex-wrap gap-2 mb-4">
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{ paddingRight: 8 }}
+      className="mb-4"
+    >
       <TouchableOpacity
         onPress={() => onSelect(null)}
-        className={`px-4 py-2 rounded-full border ${
+        className={`px-4 py-2 rounded-full border mr-2 ${
           selectedId === null ? "bg-primary border-primary" : "bg-card border-border"
         }`}
       >
@@ -27,7 +32,7 @@ export default function CategoryFilterBar({ categories, selectedId, onSelect }: 
           <TouchableOpacity
             key={cat.id}
             onPress={() => onSelect(cat.id)}
-            className={`px-4 py-2 rounded-full border ${
+            className={`px-4 py-2 rounded-full border mr-2 ${
               active ? "bg-primary border-primary" : "bg-card border-border"
             }`}
           >
@@ -37,6 +42,6 @@ export default function CategoryFilterBar({ categories, selectedId, onSelect }: 
           </TouchableOpacity>
         );
       })}
-    </View>
+    </ScrollView>
   );
 }
