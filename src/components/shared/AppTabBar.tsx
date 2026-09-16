@@ -33,7 +33,12 @@ const LABELS: Record<string, string> = {
 const FAB_SIZE = 56;
 const BAR_HEIGHT = 64;
 const BAR_RADIUS = 24;
-const BAR_MARGIN_H = 16;
+// Per-tab horizontal padding -- tabs are sized to their content (icon +
+// label) plus this, instead of flex-stretching evenly across the full
+// screen width. Keeps the bar a compact centered pill rather than a bar
+// with large empty gaps between only 3-4 items.
+const TAB_H_PADDING = 14;
+const BAR_H_PADDING = 6;
 
 // Extra breathing room above the system nav bar / home indicator so the
 // floating bar reads as clearly detached from it, not flush against it.
@@ -62,6 +67,16 @@ const fabShadow = {
 export default function AppTabBar({ state, navigation }: AppTabBarProps) {
   const insets = useSafeAreaInsets();
   const bottomOffset = Math.max(insets.bottom + BOTTOM_GAP, MIN_BOTTOM_OFFSET);
+
+  // Hidden routes (href: null screens like "cart" or "scan") are full-screen
+  // flows -- checkout, camera -- that already have their own back/close
+  // affordance. The floating bar has no meaningful "active tab" to show
+  // there and would otherwise just float on top of that screen's own
+  // bottom-anchored UI, so don't render it at all while one is focused.
+  const focusedRouteName = state.routes[state.index]?.name;
+  if (!focusedRouteName || !(focusedRouteName in LABELS)) {
+    return null;
+  }
 
   const scanRoute = state.routes.find((r) => r.name === "scan");
   const hasFab = !!scanRoute;
@@ -92,13 +107,15 @@ export default function AppTabBar({ state, navigation }: AppTabBarProps) {
       <Pressable
         key={route.key}
         onPress={() => navigateTo(route.name, route.key)}
-        className="items-center justify-center flex-1"
+        className="items-center justify-center"
+        style={{ paddingHorizontal: TAB_H_PADDING }}
         hitSlop={8}
       >
         <Ionicons name={icon} size={21} color={isActive ? "#800020" : "#999"} />
         <Text
-          className={`text-[11px] mt-0.5 ${isActive ? "text-primary font-bold" : "text-text opacity-50"
-            }`}
+          className={`text-[11px] mt-0.5 ${
+            isActive ? "text-primary font-bold" : "text-text opacity-50"
+          }`}
         >
           {label}
         </Text>
@@ -110,11 +127,11 @@ export default function AppTabBar({ state, navigation }: AppTabBarProps) {
     return (
       <View
         pointerEvents="box-none"
-        style={{ position: "absolute", left: BAR_MARGIN_H, right: BAR_MARGIN_H, bottom: bottomOffset }}
+        style={{ position: "absolute", bottom: bottomOffset, alignSelf: "center" }}
       >
         <View
           className="flex-row items-center bg-card"
-          style={{ height: BAR_HEIGHT, borderRadius: BAR_RADIUS, paddingHorizontal: 8, ...floatingShadow }}
+          style={{ height: BAR_HEIGHT, borderRadius: BAR_RADIUS, paddingHorizontal: BAR_H_PADDING, ...floatingShadow }}
         >
           {visibleRoutes.map(renderTab)}
         </View>
@@ -129,15 +146,15 @@ export default function AppTabBar({ state, navigation }: AppTabBarProps) {
   return (
     <View
       pointerEvents="box-none"
-      style={{ position: "absolute", left: BAR_MARGIN_H, right: BAR_MARGIN_H, bottom: bottomOffset }}
+      style={{ position: "absolute", bottom: bottomOffset, alignSelf: "center" }}
     >
       <View
         className="flex-row items-center bg-card"
-        style={{ height: BAR_HEIGHT, borderRadius: BAR_RADIUS, paddingHorizontal: 8, ...floatingShadow }}
+        style={{ height: BAR_HEIGHT, borderRadius: BAR_RADIUS, paddingHorizontal: BAR_H_PADDING, ...floatingShadow }}
       >
-        <View className="flex-row flex-1">{leftRoutes.map(renderTab)}</View>
-        <View style={{ width: FAB_SIZE + 8 }} />
-        <View className="flex-row flex-1">{rightRoutes.map(renderTab)}</View>
+        <View className="flex-row">{leftRoutes.map(renderTab)}</View>
+        <View style={{ width: FAB_SIZE + 16 }} />
+        <View className="flex-row">{rightRoutes.map(renderTab)}</View>
       </View>
 
       <Pressable

@@ -8,8 +8,7 @@ import CategoryFilterBar from "../../components/staff/menu/CategoryFilterBar";
 import ActiveOrderCard from "../../components/student/home/ActiveOrderCard";
 import HomeMenuCard from "../../components/student/home/HomeMenuCard";
 import HomeMenuListItem from "../../components/student/home/HomeMenuListItem";
-import PickupInfoModal from "../../components/student/home/PickupInfoModal";
-import QuickActionButton from "../../components/student/home/QuickActionButton";
+import NotificationModal from "../../components/student/home/NotificationModal";
 import SloganCard from "../../components/student/home/SloganCard";
 import FlyingCartAnimation from "../../components/student/menu/FlyingCartAnimation";
 import ItemDetailModal from "../../components/student/menu/ItemDetailModal";
@@ -19,7 +18,9 @@ import { useStudentMenu } from "../../hooks/useStudentMenu";
 import { useAuthStore } from "../../store/authStore";
 import { useCartStore } from "../../store/cartStore";
 import { useFavoritesStore } from "../../store/favoritesStore";
+import { useNotificationStore } from "../../store/notificationStore";
 import { MenuItem, MenuItemVariant } from "../../types/menu";
+import { deriveOrderNotifications } from "../../utils/notifications";
 
 const ACTIVE_STATUSES = ["pending", "preparing", "ready"];
 const TAB_BAR_CLEARANCE = 64 + 40 + 24;
@@ -62,8 +63,8 @@ export default function StudentHomeScreen() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [activeItem, setActiveItem] = useState<MenuItem | null>(null);
   const [flight, setFlight] = useState<FlightState | null>(null);
-  const [pickupInfoVisible, setPickupInfoVisible] = useState(false);
   const [menuSectionY, setMenuSectionY] = useState(0);
+  const [notificationsVisible, setNotificationsVisible] = useState(false);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const cartIconRef = useRef<View>(null);
@@ -75,12 +76,28 @@ export default function StudentHomeScreen() {
   const favoriteIds = useFavoritesStore((state) => state.favoriteIds);
   const toggleFavorite = useFavoritesStore((state) => state.toggleFavorite);
 
+  const lastSeenAt = useNotificationStore((state) => state.lastSeenAt);
+  const markAllSeen = useNotificationStore((state) => state.markAllSeen);
+  const dismissedIds = useNotificationStore((state) => state.dismissedIds);
+  const dismissNotification = useNotificationStore((state) => state.dismiss);
+
   const firstName = user ? getFirstName(user.name) : "";
   const avatarInitial = user?.name?.trim()?.[0]?.toUpperCase() ?? "?";
 
   const activeOrder = [...myOrders]
     .filter((o) => ACTIVE_STATUSES.includes(o.status))
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+  const notifications = useMemo(() => {
+    const all = deriveOrderNotifications(myOrders);
+    return all.filter((n) => !dismissedIds.has(n.id));
+  }, [myOrders, dismissedIds]);
+
+  const unreadCount = useMemo(() => {
+    if (!lastSeenAt) return notifications.length;
+    const seenTime = new Date(lastSeenAt).getTime();
+    return notifications.filter((n) => new Date(n.timestamp).getTime() > seenTime).length;
+  }, [notifications, lastSeenAt]);
 
   const specials = menuItems.filter((i) => i.isSpecial && i.available);
 
@@ -96,6 +113,11 @@ export default function StudentHomeScreen() {
 
   const scrollToMenu = () => {
     scrollViewRef.current?.scrollTo({ y: menuSectionY, animated: true });
+  };
+
+  const openNotifications = () => {
+    setNotificationsVisible(true);
+    markAllSeen();
   };
 
   const launchFlight = (
@@ -164,10 +186,14 @@ export default function StudentHomeScreen() {
           <View className="flex-row items-center">
             <TouchableOpacity
               className="w-11 h-11 rounded-full bg-card border border-border items-center justify-center mr-2"
-              onPress={() => {}}
+              onPress={openNotifications}
             >
               <Ionicons name="notifications-outline" size={22} color="#800020" />
-              <View className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-danger" />
+              {unreadCount > 0 && (
+                <View className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-danger items-center justify-center">
+                  <Text className="text-white text-[10px] font-bold">{unreadCount > 9 ? "9+" : unreadCount}</Text>
+                </View>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -244,43 +270,6 @@ export default function StudentHomeScreen() {
           )}
         </View>
 
-        <View className="mt-6 px-5">
-          <Text className="text-lg font-bold text-text mb-3">Quick Actions</Text>
-
-          <View className="flex-row justify-between">
-            <QuickActionButton label="Browse Menu" icon="restaurant-outline" onPress={scrollToMenu} />
-            <QuickActionButton
-              label="My Orders"
-              icon="receipt-outline"
-              onPress={() => router.push("/(student)/orders")}
-            />
-            <QuickActionButton
-              label="Favorites"
-              icon="heart-outline"
-              onPress={() => router.push("/(student)/favorites")}
-            />
-            <QuickActionButton
-              label="Pickup Info"
-              icon="information-circle-outline"
-              onPress={() => setPickupInfoVisible(true)}
-            />
-          </View>
-        </View>
-
-        {/* Placeholder cut-off time -- real per-day cut-off logic isn't
-            built yet (tracked as one of the four Control Features). */}
-        <View className="flex-row items-center bg-amber-50 border border-amber-200 rounded-2xl mx-5 mt-6 px-4 py-3.5">
-          <View className="w-9 h-9 rounded-full bg-amber-100 items-center justify-center mr-3">
-            <Ionicons name="alarm-outline" size={18} color="#D97706" />
-          </View>
-          <View className="flex-1">
-            <Text className="text-text font-bold text-sm">Ordering Cut-off</Text>
-            <Text className="text-text opacity-60 text-xs mt-0.5">
-              You can place orders until 9:45 AM for today's recess.
-            </Text>
-          </View>
-        </View>
-
         <View className="px-5 mt-6">
           <Text className="text-lg font-bold text-text mb-3">Category</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -328,7 +317,12 @@ export default function StudentHomeScreen() {
         onOrderNow={(item, variant, quantity, source) => launchFlight(item, variant, quantity, source, true)}
       />
 
-      <PickupInfoModal visible={pickupInfoVisible} onClose={() => setPickupInfoVisible(false)} />
+      <NotificationModal
+        visible={notificationsVisible}
+        notifications={notifications}
+        onClose={() => setNotificationsVisible(false)}
+        onDelete={dismissNotification}
+      />
 
       {flight && (
         <FlyingCartAnimation

@@ -2,7 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text, View } from "react-native";
 
 export type Order = {
-  id: string;
+  orderId: string; // real order UUID -- for React keys, never shown in the UI
+  id: string; // display label, e.g. "#001" -- NOT guaranteed unique across days
   name: string;
   time: string;
   status: string;

@@ -34,6 +34,7 @@ function formatTime(iso: string): string {
 
 function toOrderRowData(order: Order): OrderRowData {
   return {
+    orderId: order.id,
     id: order.orderNumber ? `#${String(order.orderNumber).padStart(3, "0")}` : "#—",
     name: order.studentName ?? "Unknown student",
     time: formatTime(order.createdAt),
@@ -298,7 +299,7 @@ export default function Dashboard() {
           ) : (
             <View className="bg-card border border-border rounded-2xl px-4 mb-6">
               {recentOrders.map((order, i) => (
-                <OrderRow key={order.id} order={order} isLast={i === recentOrders.length - 1} />
+                <OrderRow key={order.orderId} order={order} isLast={i === recentOrders.length - 1} />
               ))}
             </View>
           )}
