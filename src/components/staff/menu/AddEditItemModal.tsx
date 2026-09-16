@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   Switch,
@@ -12,6 +14,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Category, MenuItem, Subcategory } from "../../../types/menu";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 
@@ -59,6 +62,8 @@ export default function AddEditItemModal({
   onDeleteSubcategory: (id: string) => Promise<void>;
   saving?: boolean;
 }) {
+  const insets = useSafeAreaInsets();
+
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
@@ -299,327 +304,335 @@ export default function AddEditItemModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable className="flex-1 bg-black/40" onPress={onClose} />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <Pressable className="flex-1 bg-black/40" onPress={onClose} />
 
-      <View className="absolute bottom-0 left-0 right-0 bg-card rounded-t-3xl px-5 pt-3 pb-8 max-h-[88%]">
-        <View className="w-10 h-1.5 rounded-full bg-border self-center mb-4" />
+        <View
+          className="absolute bottom-0 left-0 right-0 bg-card rounded-t-3xl px-5 pt-3 max-h-[88%]"
+          style={{ paddingBottom: Math.max(insets.bottom + 16, 32) }}
+        >
+          <View className="w-10 h-1.5 rounded-full bg-border self-center mb-4" />
 
-        <View className="flex-row items-center justify-between mb-5">
-          <Text className="text-text text-lg font-bold">
-            {mode === "add" ? "Add Menu Item" : "Edit Menu Item"}
-          </Text>
-          <Pressable hitSlop={8} onPress={onClose}>
-            <Ionicons name="close" size={22} color="#666" />
-          </Pressable>
-        </View>
+          <View className="flex-row items-center justify-between mb-5">
+            <Text className="text-text text-lg font-bold">
+              {mode === "add" ? "Add Menu Item" : "Edit Menu Item"}
+            </Text>
+            <Pressable hitSlop={8} onPress={onClose}>
+              <Ionicons name="close" size={22} color="#666" />
+            </Pressable>
+          </View>
 
-        <ScrollView showsVerticalScrollIndicator={false}>
-          {/* Image picker */}
-          <Text className="text-text font-medium mb-1.5 text-sm">Photo</Text>
-          <Pressable
-            onPress={pickImage}
-            className="border border-border border-dashed rounded-xl h-32 items-center justify-center mb-4 overflow-hidden"
-          >
-            {previewUri ? (
-              <Image source={{ uri: previewUri }} style={{ width: "100%", height: "100%" }} />
-            ) : (
-              <>
-                <Ionicons name="camera-outline" size={24} color="#999" />
-                <Text className="text-text opacity-50 text-xs mt-1">Tap to add a photo</Text>
-              </>
-            )}
-          </Pressable>
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            {/* Image picker */}
+            <Text className="text-text font-medium mb-1.5 text-sm">Photo</Text>
+            <Pressable
+              onPress={pickImage}
+              className="border border-border border-dashed rounded-xl h-32 items-center justify-center mb-4 overflow-hidden"
+            >
+              {previewUri ? (
+                <Image source={{ uri: previewUri }} style={{ width: "100%", height: "100%" }} />
+              ) : (
+                <>
+                  <Ionicons name="camera-outline" size={24} color="#999" />
+                  <Text className="text-text opacity-50 text-xs mt-1">Tap to add a photo</Text>
+                </>
+              )}
+            </Pressable>
 
-          <Text className="text-text font-medium mb-1.5 text-sm">Item Name</Text>
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            placeholder="e.g. Coke, Chicken Adobo Rice"
-            placeholderTextColor="#999"
-            className="border border-border rounded-xl px-4 py-3 mb-4 text-text"
-          />
+            <Text className="text-text font-medium mb-1.5 text-sm">Item Name</Text>
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              placeholder="e.g. Coke, Chicken Adobo Rice"
+              placeholderTextColor="#999"
+              className="border border-border rounded-xl px-4 py-3 mb-4 text-text"
+            />
 
-          <Text className="text-text font-medium mb-1.5 text-sm">Description (optional)</Text>
-          <TextInput
-            value={description}
-            onChangeText={setDescription}
-            placeholder="e.g. Served with rice and gravy"
-            placeholderTextColor="#999"
-            multiline
-            numberOfLines={2}
-            className="border border-border rounded-xl px-4 py-3 mb-4 text-text"
-            style={{ textAlignVertical: "top", minHeight: 60 }}
-          />
+            <Text className="text-text font-medium mb-1.5 text-sm">Description (optional)</Text>
+            <TextInput
+              value={description}
+              onChangeText={setDescription}
+              placeholder="e.g. Served with rice and gravy"
+              placeholderTextColor="#999"
+              multiline
+              numberOfLines={2}
+              className="border border-border rounded-xl px-4 py-3 mb-4 text-text"
+              style={{ textAlignVertical: "top", minHeight: 60 }}
+            />
 
-          <Text className="text-text font-medium mb-1.5 text-sm">Category</Text>
-          <Text className="text-text opacity-40 text-[11px] mb-1.5">Hold a chip to delete it</Text>
-          <View className="flex-row flex-wrap mb-2">
-            {categories.map((cat) => (
-              <Pressable
-                key={cat.id}
-                onPress={() => setCategoryId(cat.id)}
-                onLongPress={() => setPendingDelete({ kind: "category", id: cat.id, name: cat.name })}
-                delayLongPress={400}
-                className={`px-3 py-2 rounded-full border mr-2 mb-2 ${categoryId === cat.id ? "bg-primary border-primary" : "border-border bg-transparent"
-                  }`}
-              >
-                <Text
-                  className={`text-xs font-medium ${categoryId === cat.id ? "text-white" : "text-text"
+            <Text className="text-text font-medium mb-1.5 text-sm">Category</Text>
+            <Text className="text-text opacity-40 text-[11px] mb-1.5">Hold a chip to delete it</Text>
+            <View className="flex-row flex-wrap mb-2">
+              {categories.map((cat) => (
+                <Pressable
+                  key={cat.id}
+                  onPress={() => setCategoryId(cat.id)}
+                  onLongPress={() => setPendingDelete({ kind: "category", id: cat.id, name: cat.name })}
+                  delayLongPress={400}
+                  className={`px-3 py-2 rounded-full border mr-2 mb-2 ${categoryId === cat.id ? "bg-primary border-primary" : "border-border bg-transparent"
                     }`}
                 >
-                  {cat.name}
-                </Text>
-              </Pressable>
-            ))}
-            {!addingCategory && (
-              <Pressable
-                onPress={() => setAddingCategory(true)}
-                className="flex-row items-center px-3 py-2 rounded-full border border-dashed border-primary mr-2 mb-2"
-              >
-                <Ionicons name="add" size={14} color="#800020" />
-                <Text className="text-primary text-xs font-medium ml-1">Add category</Text>
-              </Pressable>
-            )}
-          </View>
-
-          {addingCategory && (
-            <View className="flex-row items-center mb-4">
-              <TextInput
-                value={newCategoryName}
-                onChangeText={setNewCategoryName}
-                placeholder="e.g. Combo Meal"
-                placeholderTextColor="#999"
-                autoFocus
-                className="flex-1 border border-border rounded-xl px-4 py-2.5 text-text mr-2"
-              />
-              <Pressable
-                onPress={handleAddCategory}
-                disabled={addCategoryLoading}
-                className="w-10 h-10 rounded-full bg-primary items-center justify-center mr-2"
-              >
-                {addCategoryLoading ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Ionicons name="checkmark" size={18} color="#fff" />
-                )}
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  setAddingCategory(false);
-                  setNewCategoryName("");
-                }}
-                className="w-10 h-10 rounded-full border border-border items-center justify-center"
-              >
-                <Ionicons name="close" size={18} color="#666" />
-              </Pressable>
+                  <Text
+                    className={`text-xs font-medium ${categoryId === cat.id ? "text-white" : "text-text"
+                      }`}
+                  >
+                    {cat.name}
+                  </Text>
+                </Pressable>
+              ))}
+              {!addingCategory && (
+                <Pressable
+                  onPress={() => setAddingCategory(true)}
+                  className="flex-row items-center px-3 py-2 rounded-full border border-dashed border-primary mr-2 mb-2"
+                >
+                  <Ionicons name="add" size={14} color="#800020" />
+                  <Text className="text-primary text-xs font-medium ml-1">Add category</Text>
+                </Pressable>
+              )}
             </View>
-          )}
 
-          {/* Type (subcategory) - only shown once a category is selected */}
-          {categoryId && (
-            <>
-              <Text className="text-text font-medium mb-1.5 text-sm">Type (optional)</Text>
-              <View className="flex-row flex-wrap mb-2">
-                {subcategories
-                  .filter((s) => s.categoryId === categoryId)
-                  .map((sub) => (
-                    <Pressable
-                      key={sub.id}
-                      onPress={() =>
-                        setSubcategoryId(subcategoryId === sub.id ? null : sub.id)
-                      }
-                      onLongPress={() =>
-                        setPendingDelete({ kind: "subcategory", id: sub.id, name: sub.name })
-                      }
-                      delayLongPress={400}
-                      className={`px-3 py-2 rounded-full border mr-2 mb-2 ${subcategoryId === sub.id
-                        ? "bg-primary border-primary"
-                        : "border-border bg-transparent"
-                        }`}
-                    >
-                      <Text
-                        className={`text-xs font-medium ${subcategoryId === sub.id ? "text-white" : "text-text"
+            {addingCategory && (
+              <View className="flex-row items-center mb-4">
+                <TextInput
+                  value={newCategoryName}
+                  onChangeText={setNewCategoryName}
+                  placeholder="e.g. Combo Meal"
+                  placeholderTextColor="#999"
+                  autoFocus
+                  className="flex-1 border border-border rounded-xl px-4 py-2.5 text-text mr-2"
+                />
+                <Pressable
+                  onPress={handleAddCategory}
+                  disabled={addCategoryLoading}
+                  className="w-10 h-10 rounded-full bg-primary items-center justify-center mr-2"
+                >
+                  {addCategoryLoading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Ionicons name="checkmark" size={18} color="#fff" />
+                  )}
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    setAddingCategory(false);
+                    setNewCategoryName("");
+                  }}
+                  className="w-10 h-10 rounded-full border border-border items-center justify-center"
+                >
+                  <Ionicons name="close" size={18} color="#666" />
+                </Pressable>
+              </View>
+            )}
+
+            {/* Type (subcategory) - only shown once a category is selected */}
+            {categoryId && (
+              <>
+                <Text className="text-text font-medium mb-1.5 text-sm">Type (optional)</Text>
+                <View className="flex-row flex-wrap mb-2">
+                  {subcategories
+                    .filter((s) => s.categoryId === categoryId)
+                    .map((sub) => (
+                      <Pressable
+                        key={sub.id}
+                        onPress={() =>
+                          setSubcategoryId(subcategoryId === sub.id ? null : sub.id)
+                        }
+                        onLongPress={() =>
+                          setPendingDelete({ kind: "subcategory", id: sub.id, name: sub.name })
+                        }
+                        delayLongPress={400}
+                        className={`px-3 py-2 rounded-full border mr-2 mb-2 ${subcategoryId === sub.id
+                          ? "bg-primary border-primary"
+                          : "border-border bg-transparent"
                           }`}
                       >
-                        {sub.name}
-                      </Text>
+                        <Text
+                          className={`text-xs font-medium ${subcategoryId === sub.id ? "text-white" : "text-text"
+                            }`}
+                        >
+                          {sub.name}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  {!addingSubcategory && (
+                    <Pressable
+                      onPress={() => setAddingSubcategory(true)}
+                      className="flex-row items-center px-3 py-2 rounded-full border border-dashed border-primary mr-2 mb-2"
+                    >
+                      <Ionicons name="add" size={14} color="#800020" />
+                      <Text className="text-primary text-xs font-medium ml-1">Add type</Text>
                     </Pressable>
-                  ))}
-                {!addingSubcategory && (
-                  <Pressable
-                    onPress={() => setAddingSubcategory(true)}
-                    className="flex-row items-center px-3 py-2 rounded-full border border-dashed border-primary mr-2 mb-2"
-                  >
-                    <Ionicons name="add" size={14} color="#800020" />
-                    <Text className="text-primary text-xs font-medium ml-1">Add type</Text>
-                  </Pressable>
+                  )}
+                </View>
+
+                {addingSubcategory && (
+                  <View className="flex-row items-center mb-4">
+                    <TextInput
+                      value={newSubcategoryName}
+                      onChangeText={setNewSubcategoryName}
+                      placeholder="e.g. Soft Drinks, Water"
+                      placeholderTextColor="#999"
+                      autoFocus
+                      className="flex-1 border border-border rounded-xl px-4 py-2.5 text-text mr-2"
+                    />
+                    <Pressable
+                      onPress={handleAddSubcategory}
+                      disabled={addSubcategoryLoading}
+                      className="w-10 h-10 rounded-full bg-primary items-center justify-center mr-2"
+                    >
+                      {addSubcategoryLoading ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Ionicons name="checkmark" size={18} color="#fff" />
+                      )}
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        setAddingSubcategory(false);
+                        setNewSubcategoryName("");
+                      }}
+                      className="w-10 h-10 rounded-full border border-border items-center justify-center"
+                    >
+                      <Ionicons name="close" size={18} color="#666" />
+                    </Pressable>
+                  </View>
                 )}
+              </>
+            )}
+
+            {/* Variants toggle */}
+            <View className="flex-row items-center justify-between mb-3 mt-1 pt-3 border-t border-border">
+              <View className="flex-1 pr-3">
+                <Text className="text-text font-medium text-sm">Has sizes / options</Text>
+                <Text className="text-text opacity-50 text-xs">
+                  Turn on for drinks with sizes (Sakto, 8oz, Liter...) instead of one price
+                </Text>
               </View>
-
-              {addingSubcategory && (
-                <View className="flex-row items-center mb-4">
-                  <TextInput
-                    value={newSubcategoryName}
-                    onChangeText={setNewSubcategoryName}
-                    placeholder="e.g. Soft Drinks, Water"
-                    placeholderTextColor="#999"
-                    autoFocus
-                    className="flex-1 border border-border rounded-xl px-4 py-2.5 text-text mr-2"
-                  />
-                  <Pressable
-                    onPress={handleAddSubcategory}
-                    disabled={addSubcategoryLoading}
-                    className="w-10 h-10 rounded-full bg-primary items-center justify-center mr-2"
-                  >
-                    {addSubcategoryLoading ? (
-                      <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                      <Ionicons name="checkmark" size={18} color="#fff" />
-                    )}
-                  </Pressable>
-                  <Pressable
-                    onPress={() => {
-                      setAddingSubcategory(false);
-                      setNewSubcategoryName("");
-                    }}
-                    className="w-10 h-10 rounded-full border border-border items-center justify-center"
-                  >
-                    <Ionicons name="close" size={18} color="#666" />
-                  </Pressable>
-                </View>
-              )}
-            </>
-          )}
-
-          {/* Variants toggle */}
-          <View className="flex-row items-center justify-between mb-3 mt-1 pt-3 border-t border-border">
-            <View className="flex-1 pr-3">
-              <Text className="text-text font-medium text-sm">Has sizes / options</Text>
-              <Text className="text-text opacity-50 text-xs">
-                Turn on for drinks with sizes (Sakto, 8oz, Liter...) instead of one price
-              </Text>
-            </View>
-            <Switch
-              value={hasVariants}
-              onValueChange={setHasVariants}
-              trackColor={{ false: "#D1D5DB", true: "#800020" }}
-              thumbColor="#fff"
-            />
-          </View>
-
-          {hasVariants ? (
-            <View className="mb-4">
-              {variantRows.map((row, index) => (
-                <View key={index} className="flex-row items-center mb-2">
-                  <TextInput
-                    value={row.label}
-                    onChangeText={(v) => updateVariantRow(index, "label", v)}
-                    placeholder="e.g. Sakto, 8oz, Small"
-                    placeholderTextColor="#999"
-                    className="flex-1 border border-border rounded-xl px-3 py-2.5 text-text mr-2"
-                  />
-                  <TextInput
-                    value={row.price}
-                    onChangeText={(v) => updateVariantRow(index, "price", v)}
-                    placeholder="₱0.00"
-                    placeholderTextColor="#999"
-                    keyboardType="decimal-pad"
-                    className="w-24 border border-border rounded-xl px-3 py-2.5 text-text mr-2"
-                  />
-                  <Pressable
-                    hitSlop={8}
-                    onPress={() => removeVariantRow(index)}
-                    disabled={variantRows.length === 1}
-                    style={{ opacity: variantRows.length === 1 ? 0.3 : 1 }}
-                  >
-                    <Ionicons name="close-circle" size={22} color="#EF4444" />
-                  </Pressable>
-                </View>
-              ))}
-              <Pressable
-                onPress={addVariantRow}
-                className="flex-row items-center justify-center border border-dashed border-primary rounded-xl py-2.5 mt-1"
-              >
-                <Ionicons name="add" size={16} color="#800020" />
-                <Text className="text-primary text-sm font-medium ml-1">Add another size</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <>
-              <Text className="text-text font-medium mb-1.5 text-sm">Price (₱)</Text>
-              <TextInput
-                value={price}
-                onChangeText={setPrice}
-                placeholder="0.00"
-                placeholderTextColor="#999"
-                keyboardType="decimal-pad"
-                className="border border-border rounded-xl px-4 py-3 mb-4 text-text"
+              <Switch
+                value={hasVariants}
+                onValueChange={setHasVariants}
+                trackColor={{ false: "#D1D5DB", true: "#800020" }}
+                thumbColor="#fff"
               />
+            </View>
 
-              <Text className="text-text font-medium mb-1.5 text-sm">Unit label (optional)</Text>
-              <TextInput
-                value={unitLabel}
-                onChangeText={setUnitLabel}
-                placeholder="e.g. per order, per pc, per cup"
-                placeholderTextColor="#999"
-                className="border border-border rounded-xl px-4 py-3 mb-4 text-text"
+            {hasVariants ? (
+              <View className="mb-4">
+                {variantRows.map((row, index) => (
+                  <View key={index} className="flex-row items-center mb-2">
+                    <TextInput
+                      value={row.label}
+                      onChangeText={(v) => updateVariantRow(index, "label", v)}
+                      placeholder="e.g. Sakto, 8oz, Small"
+                      placeholderTextColor="#999"
+                      className="flex-1 border border-border rounded-xl px-3 py-2.5 text-text mr-2"
+                    />
+                    <TextInput
+                      value={row.price}
+                      onChangeText={(v) => updateVariantRow(index, "price", v)}
+                      placeholder="₱0.00"
+                      placeholderTextColor="#999"
+                      keyboardType="decimal-pad"
+                      className="w-24 border border-border rounded-xl px-3 py-2.5 text-text mr-2"
+                    />
+                    <Pressable
+                      hitSlop={8}
+                      onPress={() => removeVariantRow(index)}
+                      disabled={variantRows.length === 1}
+                      style={{ opacity: variantRows.length === 1 ? 0.3 : 1 }}
+                    >
+                      <Ionicons name="close-circle" size={22} color="#EF4444" />
+                    </Pressable>
+                  </View>
+                ))}
+                <Pressable
+                  onPress={addVariantRow}
+                  className="flex-row items-center justify-center border border-dashed border-primary rounded-xl py-2.5 mt-1"
+                >
+                  <Ionicons name="add" size={16} color="#800020" />
+                  <Text className="text-primary text-sm font-medium ml-1">Add another size</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <>
+                <Text className="text-text font-medium mb-1.5 text-sm">Price (₱)</Text>
+                <TextInput
+                  value={price}
+                  onChangeText={setPrice}
+                  placeholder="0.00"
+                  placeholderTextColor="#999"
+                  keyboardType="decimal-pad"
+                  className="border border-border rounded-xl px-4 py-3 mb-4 text-text"
+                />
+
+                <Text className="text-text font-medium mb-1.5 text-sm">Unit label (optional)</Text>
+                <TextInput
+                  value={unitLabel}
+                  onChangeText={setUnitLabel}
+                  placeholder="e.g. per order, per pc, per cup"
+                  placeholderTextColor="#999"
+                  className="border border-border rounded-xl px-4 py-3 mb-4 text-text"
+                />
+              </>
+            )}
+
+            <View className="flex-row items-center justify-between mb-3">
+              <Text className="text-text font-medium text-sm">Available</Text>
+              <Switch
+                value={available}
+                onValueChange={setAvailable}
+                trackColor={{ false: "#D1D5DB", true: "#800020" }}
+                thumbColor="#fff"
               />
-            </>
-          )}
-
-          <View className="flex-row items-center justify-between mb-3">
-            <Text className="text-text font-medium text-sm">Available</Text>
-            <Switch
-              value={available}
-              onValueChange={setAvailable}
-              trackColor={{ false: "#D1D5DB", true: "#800020" }}
-              thumbColor="#fff"
-            />
-          </View>
-
-          <View className="flex-row items-center justify-between mb-3">
-            <View>
-              <Text className="text-text font-medium text-sm">Today's Special</Text>
-              <Text className="text-text opacity-50 text-xs">Feature this item to students</Text>
             </View>
-            <Switch
-              value={isSpecial}
-              onValueChange={setIsSpecial}
-              trackColor={{ false: "#D1D5DB", true: "#D97706" }}
-              thumbColor="#fff"
-            />
-          </View>
 
-          <View className="flex-row items-center justify-between mb-2 pt-3 border-t border-border">
-            <View className="flex-1 pr-3">
-              <Text className="text-text font-medium text-sm">Ongoing Stock</Text>
-              <Text className="text-text opacity-50 text-xs">
-                For non-perishables (drinks, snacks) -- leftover stock carries to the next day. Leave
-                off for cooked/perishable food, which resets daily.
+            <View className="flex-row items-center justify-between mb-3">
+              <View>
+                <Text className="text-text font-medium text-sm">Today's Special</Text>
+                <Text className="text-text opacity-50 text-xs">Feature this item to students</Text>
+              </View>
+              <Switch
+                value={isSpecial}
+                onValueChange={setIsSpecial}
+                trackColor={{ false: "#D1D5DB", true: "#D97706" }}
+                thumbColor="#fff"
+              />
+            </View>
+
+            <View className="flex-row items-center justify-between mb-2 pt-3 border-t border-border">
+              <View className="flex-1 pr-3">
+                <Text className="text-text font-medium text-sm">Ongoing Stock</Text>
+                <Text className="text-text opacity-50 text-xs">
+                  For non-perishables (drinks, snacks) -- leftover stock carries to the next day. Leave
+                  off for cooked/perishable food, which resets daily.
+                </Text>
+              </View>
+              <Switch
+                value={carriesOverStock}
+                onValueChange={setCarriesOverStock}
+                trackColor={{ false: "#D1D5DB", true: "#800020" }}
+                thumbColor="#fff"
+              />
+            </View>
+
+            {error ? <Text className="text-danger text-sm mt-2">{error}</Text> : null}
+
+            <Pressable
+              onPress={handleSave}
+              disabled={saving}
+              className="bg-primary rounded-xl py-3.5 items-center mt-4"
+              style={{ opacity: saving ? 0.6 : 1 }}
+            >
+              <Text className="text-white font-bold text-base">
+                {saving ? "Saving..." : mode === "add" ? "Add Item" : "Save Changes"}
               </Text>
-            </View>
-            <Switch
-              value={carriesOverStock}
-              onValueChange={setCarriesOverStock}
-              trackColor={{ false: "#D1D5DB", true: "#800020" }}
-              thumbColor="#fff"
-            />
-          </View>
-
-          {error ? <Text className="text-danger text-sm mt-2">{error}</Text> : null}
-
-          <Pressable
-            onPress={handleSave}
-            disabled={saving}
-            className="bg-primary rounded-xl py-3.5 items-center mt-4"
-            style={{ opacity: saving ? 0.6 : 1 }}
-          >
-            <Text className="text-white font-bold text-base">
-              {saving ? "Saving..." : mode === "add" ? "Add Item" : "Save Changes"}
-            </Text>
-          </Pressable>
-        </ScrollView>
-      </View>
+            </Pressable>
+          </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
 
       <DeleteConfirmModal
         visible={!!pendingDelete}
