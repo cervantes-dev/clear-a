@@ -12,6 +12,14 @@ type Props = {
   onOpenStockModal: (id: string) => void;
 };
 
+const cardShadow = {
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.05,
+  shadowRadius: 4,
+  elevation: 1,
+};
+
 export default function InventoryItemRow({
   item,
   remaining,
@@ -23,14 +31,19 @@ export default function InventoryItemRow({
   const isSoldOut = remaining === 0;
   const isLowStock = !isUnlimited && !isSoldOut && remaining! <= LOW_STOCK_THRESHOLD;
 
+  const accentColor = isSoldOut ? "#DC2626" : isLowStock ? "#D97706" : "#fff";
+
   return (
-    <View className="flex-row items-center bg-card border border-border rounded-2xl px-4 py-3 mb-3">
+    <View
+      className="flex-row items-center bg-card border border-border rounded-2xl px-4 py-3 mb-2.5"
+      style={{ borderLeftWidth: 3, borderLeftColor: accentColor, ...cardShadow }}
+    >
       <View className="flex-1 mr-3">
         <Text className="text-text font-semibold text-sm" numberOfLines={1}>
           {item.name}
         </Text>
         {item.categoryName ? (
-          <Text className="text-text opacity-50 text-xs mt-0.5" numberOfLines={1}>
+          <Text className="text-text opacity-45 text-xs mt-0.5" numberOfLines={1}>
             {item.categoryName}
           </Text>
         ) : null}
@@ -51,35 +64,37 @@ export default function InventoryItemRow({
       {isUnlimited ? (
         <Pressable
           onPress={() => onOpenStockModal(item.id)}
-          className="flex-row items-center bg-background rounded-full px-3 py-2 mr-2"
+          className="flex-row items-center bg-background rounded-full px-3.5 py-2.5"
         >
           <Ionicons name="infinite-outline" size={16} color="#800020" />
-          <Text className="text-primary text-xs font-semibold ml-1">Unlimited</Text>
+          <Text className="text-primary text-xs font-semibold ml-1.5">No limit</Text>
         </Pressable>
       ) : (
-        <View className="flex-row items-center bg-background rounded-full mr-2">
+        <View className={`flex-row items-center rounded-full ${isSoldOut ? "bg-danger/10" : "bg-background"}`}>
           <Pressable
             onPress={() => onDecrement(item.id)}
             disabled={remaining === 0}
             hitSlop={8}
-            className="w-8 h-8 items-center justify-center"
+            className="w-9 h-9 items-center justify-center"
           >
-            <Ionicons name="remove" size={16} color={remaining === 0 ? "#ccc" : "#800020"} />
+            <Ionicons name="remove" size={16} color={remaining === 0 ? "#D9B8BF" : "#800020"} />
           </Pressable>
-          <Text className="text-text font-bold text-sm w-8 text-center">{remaining}</Text>
-          <Pressable onPress={() => onIncrement(item.id)} hitSlop={8} className="w-8 h-8 items-center justify-center">
+
+          {/* Tap the number to type an exact value */}
+          <Pressable onPress={() => onOpenStockModal(item.id)} hitSlop={4}>
+            <Text
+              className={`font-bold text-base text-center ${isSoldOut ? "text-danger" : "text-text"}`}
+              style={{ minWidth: 28 }}
+            >
+              {remaining}
+            </Text>
+          </Pressable>
+
+          <Pressable onPress={() => onIncrement(item.id)} hitSlop={8} className="w-9 h-9 items-center justify-center">
             <Ionicons name="add" size={16} color="#800020" />
           </Pressable>
         </View>
       )}
-
-      <Pressable
-        onPress={() => onOpenStockModal(item.id)}
-        hitSlop={8}
-        className="w-8 h-8 items-center justify-center"
-      >
-        <Ionicons name="ellipsis-vertical" size={18} color="#999" />
-      </Pressable>
     </View>
   );
 }

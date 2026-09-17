@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Platform, Pressable, Text, View } from "react-native";
+import { useRef } from "react";
+import { Animated, Easing, Platform, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type AppTabBarProps = {
@@ -30,23 +31,23 @@ const LABELS: Record<string, string> = {
   profile: "Profile",
 };
 
-const FAB_SIZE = 56;
-const BAR_HEIGHT = 64;
-const BAR_RADIUS = 24;
+const FAB_SIZE = 50;
+const BAR_HEIGHT = 54;
+const BAR_RADIUS = 20;
 // Per-tab horizontal padding -- tabs are sized to their content (icon +
 // label) plus this, instead of flex-stretching evenly across the full
 // screen width. Keeps the bar a compact centered pill rather than a bar
 // with large empty gaps between only 3-4 items.
-const TAB_H_PADDING = 14;
+const TAB_H_PADDING = 12;
 const BAR_H_PADDING = 6;
 
-// Extra breathing room above the system nav bar / home indicator so the
-// floating bar reads as clearly detached from it, not flush against it.
-const BOTTOM_GAP = 28;
+// Breathing room above the system nav bar / home indicator so the floating
+// bar still reads as detached from it, without sitting as high up as before.
+const BOTTOM_GAP = 14;
 // Floor in case insets.bottom under-reports on some devices/emulators
 // (e.g. translucent nav bar configs that don't always push a nonzero
 // inset) - guarantees the bar never sits flush against the nav bar.
-const MIN_BOTTOM_OFFSET = 40;
+const MIN_BOTTOM_OFFSET = 24;
 
 const floatingShadow = {
   shadowColor: "#000",
@@ -63,6 +64,108 @@ const fabShadow = {
   shadowRadius: 8,
   elevation: 10,
 };
+
+// Shared bounce: quick pop past 1.0, then a springy settle back to 1.0.
+function useBounce() {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const bounce = () => {
+    Animated.sequence([
+      Animated.timing(scale, {
+        toValue: 1.3,
+        duration: 100,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.spring(scale, {
+        toValue: 1,
+        friction: 3,
+        tension: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  return { scale, bounce };
+}
+
+function TabButton({
+  isActive,
+  icon,
+  label,
+  onPress,
+}: {
+  isActive: boolean;
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+}) {
+  const { scale, bounce } = useBounce();
+
+  const handlePress = () => {
+    bounce();
+    onPress();
+  };
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      className="items-center justify-center"
+      style={{ paddingHorizontal: TAB_H_PADDING }}
+      hitSlop={8}
+    >
+      <Animated.View style={{ transform: [{ scale }] }}>
+        <Ionicons name={icon} size={19} color={isActive ? "#800020" : "#999"} />
+      </Animated.View>
+      <Text
+        className={`text-[10px] mt-0.5 ${
+          isActive ? "text-primary font-bold" : "text-text opacity-50"
+        }`}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function ScanFab({ onPress }: { onPress: () => void }) {
+  const { scale, bounce } = useBounce();
+
+  const handlePress = () => {
+    bounce();
+    onPress();
+  };
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      style={{
+        position: "absolute",
+        top: -(FAB_SIZE / 2) + 10,
+        left: "50%",
+        marginLeft: -FAB_SIZE / 2,
+        width: FAB_SIZE,
+        height: FAB_SIZE,
+      }}
+    >
+      <Animated.View
+        style={{
+          flex: 1,
+          borderRadius: FAB_SIZE / 2,
+          backgroundColor: "#800020",
+          alignItems: "center",
+          justifyContent: "center",
+          borderWidth: 3,
+          borderColor: Platform.OS === "ios" ? "#fff" : "transparent",
+          transform: [{ scale }],
+          ...fabShadow,
+        }}
+      >
+        <Ionicons name="qr-code-outline" size={22} color="#fff" />
+      </Animated.View>
+    </Pressable>
+  );
+}
 
 export default function AppTabBar({ state, navigation }: AppTabBarProps) {
   const insets = useSafeAreaInsets();
@@ -104,22 +207,13 @@ export default function AppTabBar({ state, navigation }: AppTabBarProps) {
     const label = LABELS[route.name] ?? route.name;
 
     return (
-      <Pressable
+      <TabButton
         key={route.key}
+        isActive={isActive}
+        icon={icon}
+        label={label}
         onPress={() => navigateTo(route.name, route.key)}
-        className="items-center justify-center"
-        style={{ paddingHorizontal: TAB_H_PADDING }}
-        hitSlop={8}
-      >
-        <Ionicons name={icon} size={21} color={isActive ? "#800020" : "#999"} />
-        <Text
-          className={`text-[11px] mt-0.5 ${
-            isActive ? "text-primary font-bold" : "text-text opacity-50"
-          }`}
-        >
-          {label}
-        </Text>
-      </Pressable>
+      />
     );
   };
 
@@ -157,26 +251,7 @@ export default function AppTabBar({ state, navigation }: AppTabBarProps) {
         <View className="flex-row">{rightRoutes.map(renderTab)}</View>
       </View>
 
-      <Pressable
-        onPress={() => navigateTo(scanRoute!.name, scanRoute!.key)}
-        style={{
-          position: "absolute",
-          top: -(FAB_SIZE / 2) + 12,
-          left: "50%",
-          marginLeft: -FAB_SIZE / 2,
-          width: FAB_SIZE,
-          height: FAB_SIZE,
-          borderRadius: FAB_SIZE / 2,
-          backgroundColor: "#800020",
-          alignItems: "center",
-          justifyContent: "center",
-          borderWidth: 3,
-          borderColor: Platform.OS === "ios" ? "#fff" : "transparent",
-          ...fabShadow,
-        }}
-      >
-        <Ionicons name="qr-code-outline" size={24} color="#fff" />
-      </Pressable>
+      <ScanFab onPress={() => navigateTo(scanRoute!.name, scanRoute!.key)} />
     </View>
   );
 }
