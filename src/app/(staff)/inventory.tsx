@@ -1,5 +1,8 @@
+import InventoryFilterSheet, { INVENTORY_FILTER_OPTIONS, InventoryFilterKey } from "@/components/staff/inventory/InventoryFilterSheet";
 import InventoryItemRow, { LOW_STOCK_THRESHOLD } from "@/components/staff/inventory/InventoryItemRow";
+import InventoryListSkeleton from "@/components/staff/inventory/InventoryListSkeleton";
 import SetStockModal from "@/components/staff/menu/SetStockModal";
+import OrderStatPill from "@/components/staff/orders/OrderStatPill";
 import StaffHeaderAvatar from "@/components/staff/StaffHeaderAvatar";
 import { getMenuItems } from "@/services/menu";
 import { clearTodaysStock, getTodaysStock, setTodaysStock } from "@/services/order";
@@ -8,17 +11,29 @@ import { DailyStock } from "@/types/order";
 import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const today = () => new Date().toISOString().split("T")[0];
+const TAB_BAR_CLEARANCE = 64 + 40 + 24;
+
+function SectionLabel({ children }: { children: string }) {
+  return (
+    <Text className="text-text opacity-50 text-xs font-bold uppercase tracking-wide mb-2 mt-1">
+      {children}
+    </Text>
+  );
+}
 
 export default function Inventory() {
   const insets = useSafeAreaInsets();
   const [items, setItems] = useState<MenuItem[]>([]);
   const [stockMap, setStockMap] = useState<Record<string, DailyStock>>({});
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<InventoryFilterKey>("all");
+  const [filterSheetVisible, setFilterSheetVisible] = useState(false);
 
   const [stockTarget, setStockTarget] = useState<MenuItem | null>(null);
   const [stockSaving, setStockSaving] = useState(false);
@@ -38,6 +53,12 @@ export default function Inventory() {
   useEffect(() => {
     loadData();
   }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
 
   const applyStockUpdate = (id: string, quantity: number) => {
     setStockMap((prev) => ({
@@ -160,15 +181,33 @@ export default function Inventory() {
     });
   }, [items, stockMap, search]);
 
-  const summaryText =
-    alertCounts.soldOut + alertCounts.low === 0
-      ? "All items well stocked"
-      : [
-        alertCounts.soldOut > 0 ? `${alertCounts.soldOut} sold out` : null,
-        alertCounts.low > 0 ? `${alertCounts.low} low stock` : null,
-      ]
-        .filter(Boolean)
-        .join(" · ");
+  const needsAttention = sortedItems.filter((x) => x.priority <= 1);
+  const restItems = sortedItems.filter((x) => x.priority > 1);
+
+  const filterCounts: Record<InventoryFilterKey, number> = {
+    all: sortedItems.length,
+    attention: needsAttention.length,
+    soldOut: sortedItems.filter((x) => x.priority === 0).length,
+    low: sortedItems.filter((x) => x.priority === 1).length,
+    unlimited: sortedItems.filter((x) => x.priority === 3).length,
+  };
+
+  const filteredItems = useMemo(() => {
+    switch (statusFilter) {
+      case "attention":
+        return sortedItems.filter((x) => x.priority <= 1);
+      case "soldOut":
+        return sortedItems.filter((x) => x.priority === 0);
+      case "low":
+        return sortedItems.filter((x) => x.priority === 1);
+      case "unlimited":
+        return sortedItems.filter((x) => x.priority === 3);
+      default:
+        return sortedItems;
+    }
+  }, [sortedItems, statusFilter]);
+
+  const activeFilterLabel = INVENTORY_FILTER_OPTIONS.find((o) => o.key === statusFilter)?.label ?? "";
 
   return (
     <View className="flex-1 bg-background">
@@ -178,37 +217,123 @@ export default function Inventory() {
         <View className="flex-row items-center justify-between">
           <View>
             <Text className="text-white text-lg font-bold">Inventory</Text>
-            <Text className="text-white/80 text-xs mt-0.5">{summaryText}</Text>
+            <Text className="text-white/80 text-xs mt-0.5">Manage today's stock levels</Text>
           </View>
           <StaffHeaderAvatar />
         </View>
       </View>
+
       {loading ? (
-        <View className="flex-1 items-center justify-center bg-background rounded-t-3xl" style={{ marginTop: -20 }}>
-          <ActivityIndicator size="large" color="#800020" />
+        <View className="flex-1 bg-background rounded-t-3xl" style={{ marginTop: -20, paddingTop: 20 }}>
+          <InventoryListSkeleton />
         </View>
       ) : (
         <ScrollView
           className="flex-1 bg-background rounded-t-3xl"
           style={{ marginTop: -20 }}
-          contentContainerStyle={{ paddingTop: 20, paddingBottom: 24 }}
+          contentContainerStyle={{ paddingTop: 20, paddingBottom: insets.bottom + TAB_BAR_CLEARANCE }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
         >
           <View className="px-5">
-            <View className="flex-row items-center bg-card border border-border rounded-full px-4 py-2.5 mb-4">
-              <Ionicons name="search-outline" size={18} color="#999" />
-              <TextInput
-                value={search}
-                onChangeText={setSearch}
-                placeholder="Search inventory..."
-                placeholderTextColor="#999"
-                className="flex-1 ml-2 text-text text-sm"
+            <View className="flex-row mb-4">
+              <OrderStatPill
+                icon="cube-outline"
+                count={items.length}
+                label="Total Items"
+                iconBg="#F5E9EC"
+                iconColor="#800020"
+                labelColor="#800020"
+              />
+              <OrderStatPill
+                icon="close-circle-outline"
+                count={alertCounts.soldOut}
+                label="Sold Out"
+                iconBg="#FDECEA"
+                iconColor="#D32F2F"
+                labelColor="#D32F2F"
+              />
+              <OrderStatPill
+                icon="alert-circle-outline"
+                count={alertCounts.low}
+                label="Low Stock"
+                iconBg="#FFF5E6"
+                iconColor="#D97706"
+                labelColor="#D97706"
               />
             </View>
 
-            {sortedItems.length === 0 ? (
-              <Text className="text-text opacity-50 text-sm text-center mt-8">No items match your search.</Text>
+            <View className="flex-row items-center mb-3">
+              <View className="flex-1 flex-row items-center bg-card border border-border rounded-full px-4 py-2.5 mr-2">
+                <Ionicons name="search-outline" size={18} color="#999" />
+                <TextInput
+                  value={search}
+                  onChangeText={setSearch}
+                  placeholder="Search inventory..."
+                  placeholderTextColor="#999"
+                  className="flex-1 ml-2 text-text text-sm"
+                />
+              </View>
+
+              <Pressable
+                onPress={() => setFilterSheetVisible(true)}
+                className={`w-11 h-11 rounded-full items-center justify-center border ${
+                  statusFilter !== "all" ? "bg-primary border-primary" : "bg-card border-border"
+                }`}
+              >
+                <Ionicons name="funnel-outline" size={18} color={statusFilter !== "all" ? "#fff" : "#666"} />
+              </Pressable>
+            </View>
+
+            {statusFilter !== "all" && (
+              <Pressable
+                onPress={() => setStatusFilter("all")}
+                className="flex-row items-center self-start bg-primary/10 rounded-full pl-3 pr-2 py-1.5 mb-4"
+              >
+                <Text className="text-primary text-xs font-semibold mr-1.5">{activeFilterLabel}</Text>
+                <Ionicons name="close-circle" size={16} color="#800020" />
+              </Pressable>
+            )}
+
+            {filteredItems.length === 0 ? (
+              <Text className="text-text opacity-50 text-sm text-center mt-8">
+                {search ? "No items match your search." : "No items in this filter."}
+              </Text>
+            ) : statusFilter === "all" ? (
+              <>
+                {needsAttention.length > 0 && (
+                  <>
+                    <SectionLabel>Needs Attention</SectionLabel>
+                    {needsAttention.map(({ item, remaining }) => (
+                      <InventoryItemRow
+                        key={item.id}
+                        item={item}
+                        remaining={remaining}
+                        onIncrement={handleIncrement}
+                        onDecrement={handleDecrement}
+                        onOpenStockModal={openStockModal}
+                      />
+                    ))}
+                  </>
+                )}
+
+                {restItems.length > 0 && (
+                  <>
+                    {needsAttention.length > 0 && <SectionLabel>All Items</SectionLabel>}
+                    {restItems.map(({ item, remaining }) => (
+                      <InventoryItemRow
+                        key={item.id}
+                        item={item}
+                        remaining={remaining}
+                        onIncrement={handleIncrement}
+                        onDecrement={handleDecrement}
+                        onOpenStockModal={openStockModal}
+                      />
+                    ))}
+                  </>
+                )}
+              </>
             ) : (
-              sortedItems.map(({ item, remaining }) => (
+              filteredItems.map(({ item, remaining }) => (
                 <InventoryItemRow
                   key={item.id}
                   item={item}
@@ -222,6 +347,14 @@ export default function Inventory() {
           </View>
         </ScrollView>
       )}
+
+      <InventoryFilterSheet
+        visible={filterSheetVisible}
+        selected={statusFilter}
+        counts={filterCounts}
+        onSelect={setStatusFilter}
+        onClose={() => setFilterSheetVisible(false)}
+      />
 
       <SetStockModal
         visible={!!stockTarget}

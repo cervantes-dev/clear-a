@@ -2,8 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text, View } from "react-native";
 
 export type Order = {
-  orderId: string; // real order UUID -- for React keys, never shown in the UI
-  id: string; // display label, e.g. "#001" -- NOT guaranteed unique across days
+  orderId: string;
+  id: string;
   name: string;
   time: string;
   status: string;
@@ -23,10 +23,19 @@ function statusStyle(status: string) {
   }
 }
 
-export default function OrderRow({ order, isLast }: { order: Order; isLast: boolean }) {
+type Props = {
+  order: Order;
+  isLast: boolean;
+  onPress?: () => void;
+};
+
+export default function OrderRow({ order, isLast, onPress }: Props) {
   const badge = statusStyle(order.status);
   return (
-    <Pressable className={`flex-row items-center py-3 ${!isLast ? "border-b border-border" : ""}`}>
+    <Pressable
+      onPress={onPress}
+      className={`flex-row items-center py-3 ${!isLast ? "border-b border-border" : ""}`}
+    >
       <View className="w-11 h-11 rounded-full bg-primary/10 items-center justify-center mr-3">
         <Ionicons name="bag-handle-outline" size={18} color="#800020" />
       </View>

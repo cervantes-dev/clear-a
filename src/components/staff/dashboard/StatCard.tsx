@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 export type Stat = {
   key: string;
@@ -10,11 +10,12 @@ export type Stat = {
   icon: keyof typeof Ionicons.glyphMap | null;
   iconBg: string;
   iconColor: string;
+  onPress?: () => void;
 };
 
 export default function StatCard({ stat }: { stat: Stat }) {
-  return (
-    <View className="w-[48%] flex-row items-center bg-card border border-border rounded p-3.5 mb-4">
+  const content = (
+    <>
       <View className={`w-11 h-11 rounded-xl items-center justify-center mr-3 ${stat.iconBg}`}>
         {stat.icon ? (
           <Ionicons name={stat.icon} size={20} color={stat.iconColor} />
@@ -36,6 +37,26 @@ export default function StatCard({ stat }: { stat: Stat }) {
           {stat.note}
         </Text>
       </View>
+
+      {stat.onPress && <Ionicons name="chevron-forward" size={16} color="#C9C9C9" />}
+    </>
+  );
+
+  if (stat.onPress) {
+    return (
+      <Pressable
+        onPress={stat.onPress}
+        style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+        className="w-[48%] flex-row items-center bg-card border border-border rounded-2xl p-3.5 mb-4"
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return (
+    <View className="w-[48%] flex-row items-center bg-card border border-border rounded-2xl p-3.5 mb-4">
+      {content}
     </View>
   );
 }
