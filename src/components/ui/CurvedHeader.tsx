@@ -1,9 +1,9 @@
 import React from "react";
-import { View } from "react-native";
+import { DimensionValue, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 interface Props {
-  height?: number;
+  height?: DimensionValue;
   children?: React.ReactNode;
 }
 
