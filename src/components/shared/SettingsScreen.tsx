@@ -1,9 +1,11 @@
+import LogoutConfirmModal from "@/components/shared/LogoutConfirmModal";
 import { signOutUser } from "@/services/auth";
 import { useAuthStore } from "@/store/authStore";
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useState } from "react";
 import { Alert, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -12,29 +14,26 @@ const ROLE_LABELS: Record<string, string> = {
   student: "Student",
 };
 
-export default function SettingsScreen() {
+export default function Settings() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, setUser } = useAuthStore();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const appVersion = Constants.expoConfig?.version ?? "—";
 
-  const handleLogout = () => {
-    Alert.alert("Log out", "Are you sure you want to log out?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Log out",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await signOutUser();
-            setUser(null);
-          } catch (e: any) {
-            Alert.alert("Error", e.message ?? "Couldn't log out. Please try again.");
-          }
-        },
-      },
-    ]);
+  const handleConfirmLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await signOutUser();
+      setUser(null);
+    } catch (e: any) {
+      Alert.alert("Error", e.message ?? "Couldn't log out. Please try again.");
+    } finally {
+      setLoggingOut(false);
+      setConfirmOpen(false);
+    }
   };
 
   return (
@@ -80,13 +79,20 @@ export default function SettingsScreen() {
         </View>
 
         <Pressable
-          onPress={handleLogout}
+          onPress={() => setConfirmOpen(true)}
           className="flex-row items-center justify-center bg-danger/10 rounded-2xl py-3.5"
         >
           <Ionicons name="log-out-outline" size={18} color="#DC2626" />
           <Text className="text-danger font-bold text-sm ml-2">Log out</Text>
         </Pressable>
       </View>
+
+      <LogoutConfirmModal
+        visible={confirmOpen}
+        loading={loggingOut}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={handleConfirmLogout}
+      />
     </View>
   );
 }
