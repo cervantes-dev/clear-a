@@ -3,32 +3,14 @@ import { Slot, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
 import { ActivityIndicator, Platform, View } from "react-native";
 import "../global.css";
-import { useCartSync } from "../hooks/useCartSync";
 import { getCurrentUser } from "../services/auth";
 import { supabase } from "../services/supabase";
 import { useAuthStore } from "../store/authStore";
-import { useFavoritesStore } from "../store/favoritesStore";
 
 export default function RootLayout() {
-  const { user, isLoading, setUser, setLoading } = useAuthStore();
+  const { user, isLoading, suppressRedirect, setUser } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
-
-  // Loads the cart on login and keeps it synced live via realtime for as
-  // long as someone's signed in; resets local cart state on logout.
-  useCartSync(user?.id);
-
-  // Favorites weren't being loaded from the server at all -- favoriteIds
-  // started as an empty Set every launch, so toggling an item that was
-  // already favorited from a previous session tried to INSERT again and
-  // hit the unique constraint (23505). Load on login, clear on logout.
-  useEffect(() => {
-    if (user) {
-      useFavoritesStore.getState().loadFavorites();
-    } else {
-      useFavoritesStore.getState().reset();
-    }
-  }, [user?.id]);
 
   // Hide the Android system navigation bar on launch. On modern Android
   // (edge-to-edge enforced), the OS automatically handles temporary
@@ -55,7 +37,13 @@ export default function RootLayout() {
           setUser(null);
           return;
         }
-        setLoading(true);
+        // Deliberately NOT calling setLoading(true) here. This fires on
+        // every session change, including the one caused by a screen's own
+        // sign-in flow (which may be mid-way through its own success
+        // animation) -- flipping the global isLoading flag would unmount
+        // the whole app tree into the boot spinner below and cut that
+        // animation off. setUser() already resolves isLoading to false, so
+        // this stays a silent background refresh.
         const current = await getCurrentUser();
         setUser(current);
       }
@@ -66,7 +54,21 @@ export default function RootLayout() {
 
   // Redirect logic, runs whenever auth state or route segment changes
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || suppressRedirect) return;
+
+    // Still sitting on the bare "/" route (index.tsx hasn't redirected yet).
+    // index.tsx makes its own onboarding-vs-login decision asynchronously
+    // (it has to read AsyncStorage first) -- if this effect also redirects
+    // during that window, the two navigations race and whichever fires last
+    // wins, which was silently overriding the onboarding redirect with
+    // this effect's own "no user -> login" rule. Waiting for segments to be
+    // non-empty means index.tsx's redirect has already happened, so this
+    // effect is only ever reacting to a route that's already resolved.
+    // Cast to string[] first -- expo-router's typed-routes union for
+    // useSegments() doesn't include the zero-length case even though it's
+    // the real runtime value on the bare index route.
+    const currentSegments = segments as string[];
+    if (currentSegments.length === 0) return;
 
     const inAuthGroup = segments[0] === "(auth)";
 
@@ -79,7 +81,7 @@ export default function RootLayout() {
     } else if (user && segments[0] === "(student)" && user.role === "staff") {
       router.replace("/(staff)/dashboard");
     }
-  }, [isLoading, user, segments]);
+  }, [isLoading, suppressRedirect, user, segments]);
 
   if (isLoading) {
     return (
