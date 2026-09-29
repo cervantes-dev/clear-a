@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
+  Dimensions,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -10,13 +11,27 @@ import {
   Text,
   View,
 } from "react-native";
+import Animated, {
+  Easing,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AuthInput from "../../components/ui/AuthInput";
 import PrimaryButton from "../../components/ui/PrimaryButton";
 import WaveHeader from "../../components/ui/WaveHeader";
-import { checkEmailRegistration, startSignUp } from "../../services/auth";
+import { checkEmailRegistration, signInWithGoogle, startSignUp } from "../../services/auth";
+import { useAuthStore } from "../../store/authStore";
+import { AppUser } from "../../types/auth";
 
 const LRN_PATTERN = /^\d{12}$/;
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+const HEADER_HEIGHT = 130;
+const INITIAL_SCALE = HEADER_HEIGHT / SCREEN_HEIGHT;
 
 function mapAuthError(message?: string) {
   if (!message) return "";
@@ -24,6 +39,39 @@ function mapAuthError(message?: string) {
   if (message.includes("Password should be at least")) return "Password must be at least 6 characters.";
   if (message.includes("Unable to validate email")) return "That email address looks invalid.";
   return message;
+}
+
+// Press-scale wrapper -- shrinks slightly on press, springs back on release.
+function Pressy({
+  onPress,
+  disabled,
+  children,
+}: {
+  onPress?: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View style={animatedStyle}>
+      <Pressable
+        onPress={onPress}
+        disabled={disabled}
+        onPressIn={() => {
+          scale.value = withTiming(0.96, { duration: 100 });
+        }}
+        onPressOut={() => {
+          scale.value = withSpring(1, { damping: 12, stiffness: 200 });
+        }}
+      >
+        {children}
+      </Pressable>
+    </Animated.View>
+  );
 }
 
 export default function Register() {
@@ -35,6 +83,62 @@ export default function Register() {
   const [agreed, setAgreed] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
+  const setUser = useAuthStore((s) => s.setUser);
+  const setSuppressRedirect = useAuthStore((s) => s.setSuppressRedirect);
+
+  // Same plain-rectangle, transform-driven curtain as login.tsx -- no SVG
+  // curve stretched across the screen, so there's never a gap for the
+  // background to show through, and it stays smooth since only
+  // transform properties are animated (no layout thrash).
+  const curtainScale = useSharedValue(INITIAL_SCALE);
+  const restingHeaderOpacity = useSharedValue(1);
+  const formOpacity = useSharedValue(1);
+  const checkScale = useSharedValue(0);
+  const checkOpacity = useSharedValue(0);
+
+  const curtainStyle = useAnimatedStyle(() => {
+    const s = curtainScale.value;
+    return {
+      transform: [{ translateY: (s - 1) * (SCREEN_HEIGHT / 2) }, { scaleY: s }],
+    };
+  });
+  const restingHeaderStyle = useAnimatedStyle(() => ({
+    opacity: restingHeaderOpacity.value,
+  }));
+  const formStyle = useAnimatedStyle(() => ({
+    opacity: formOpacity.value,
+  }));
+  const checkStyle = useAnimatedStyle(() => ({
+    opacity: checkOpacity.value,
+    transform: [{ scale: checkScale.value }],
+  }));
+
+  const finishLogin = (user: AppUser, destination: string) => {
+    setUser(user);
+    setSuppressRedirect(false);
+    router.replace(destination as any);
+  };
+
+  const celebrateAndGo = (user: AppUser, destination: string) => {
+    setTransitioning(true);
+    restingHeaderOpacity.value = withTiming(0, { duration: 150 });
+    formOpacity.value = withTiming(0, { duration: 200 });
+
+    checkOpacity.value = withDelay(400, withTiming(1, { duration: 200 }));
+    checkScale.value = withDelay(400, withSpring(1, { damping: 8, stiffness: 140 }));
+
+    curtainScale.value = withTiming(
+      1,
+      { duration: 600, easing: Easing.out(Easing.cubic) },
+      (finished) => {
+        if (finished) {
+          runOnJS(finishLogin)(user, destination);
+        }
+      }
+    );
+  };
 
   const handleLrnChange = (text: string) => {
     setLrn(text.replace(/\D/g, ""));
@@ -88,6 +192,21 @@ export default function Register() {
     }
   };
 
+  const handleGoogleSignUp = async () => {
+    setError("");
+    setGoogleLoading(true);
+    setSuppressRedirect(true);
+    try {
+      const user = await signInWithGoogle();
+      celebrateAndGo(user, user.role === "staff" ? "/(staff)/dashboard" : "/(student)/home");
+    } catch (e: any) {
+      setSuppressRedirect(false);
+      setError(e.message ?? "Couldn't sign up with Google.");
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
       <KeyboardAvoidingView
@@ -99,34 +218,37 @@ export default function Register() {
           className="flex-1 bg-background"
           contentContainerStyle={{ flexGrow: 1 }}
           keyboardShouldPersistTaps="handled"
+          scrollEnabled={!transitioning}
         >
-          <View style={{ position: "relative" }}>
-            <WaveHeader height={130} />
+          <Animated.View style={transitioning ? restingHeaderStyle : undefined}>
+            <View style={{ position: "relative" }}>
+              <WaveHeader height={HEADER_HEIGHT} />
 
-            <View
-              style={{
-                position: "absolute",
-                top: 45,
-                left: 0,
-                right: 0,
-                flexDirection: "row",
-                alignItems: "center",
-                paddingHorizontal: 20,
-              }}
-            >
-              <Pressable onPress={() => router.back()} hitSlop={8}>
-                <Ionicons name="arrow-back" size={24} color="#fff" />
-              </Pressable>
-              <Text
-                style={{ flex: 1, textAlign: "center", marginRight: 24 }}
-                className="text-white text-lg font-bold"
+              <View
+                style={{
+                  position: "absolute",
+                  top: 45,
+                  left: 0,
+                  right: 0,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  paddingHorizontal: 20,
+                }}
               >
-                Create Account
-              </Text>
+                <Pressable onPress={() => router.back()} hitSlop={8}>
+                  <Ionicons name="arrow-back" size={24} color="#fff" />
+                </Pressable>
+                <Text
+                  style={{ flex: 1, textAlign: "center", marginRight: 24 }}
+                  className="text-white text-lg font-bold"
+                >
+                  Create Account
+                </Text>
+              </View>
             </View>
-          </View>
+          </Animated.View>
 
-          <View className="items-center mt-2 px-6">
+          <Animated.View style={formStyle} className="items-center mt-2 px-6">
             <Image
               source={require("../../../assets/images/logo.png")}
               style={{ width: 150, height: 115 }}
@@ -211,11 +333,28 @@ export default function Register() {
               </Pressable>
 
               <PrimaryButton
-                label="Register"
+                label={loading ? "Creating account..." : "Register"}
                 onPress={handleRegister}
-                loading={loading}
-                disabled={!agreed}
+                disabled={loading || !agreed || transitioning}
               />
+
+              <View className="flex-row items-center my-5">
+                <View className="flex-1 h-[1px] bg-border" />
+                <Text className="mx-3 text-text opacity-50 text-xs">OR</Text>
+                <View className="flex-1 h-[1px] bg-border" />
+              </View>
+
+              <Pressy onPress={handleGoogleSignUp} disabled={googleLoading || transitioning}>
+                <View
+                  className="flex-row items-center justify-center border border-border rounded-xl h-[50px] bg-card"
+                  style={{ opacity: googleLoading ? 0.6 : 1 }}
+                >
+                  <Ionicons name="logo-google" size={18} color="#DB4437" />
+                  <Text className="ml-2 text-text font-medium">
+                    {googleLoading ? "Signing up..." : "Continue with Google"}
+                  </Text>
+                </View>
+              </Pressy>
 
               <View className="flex-row justify-center mt-6 mb-8">
                 <Text className="text-text text-sm">Already have an account? </Text>
@@ -224,9 +363,49 @@ export default function Register() {
                 </Pressable>
               </View>
             </View>
-          </View>
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {transitioning && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            curtainStyle,
+            {
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: SCREEN_HEIGHT,
+              backgroundColor: "#800020",
+            },
+          ]}
+        />
+      )}
+
+      {transitioning && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            checkStyle,
+            {
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              alignItems: "center",
+              justifyContent: "center",
+            },
+          ]}
+        >
+          <View className="w-16 h-16 rounded-full bg-white/20 items-center justify-center mb-3">
+            <Ionicons name="checkmark" size={34} color="#fff" />
+          </View>
+          <Text className="text-white font-bold text-base">Welcome!</Text>
+        </Animated.View>
+      )}
     </SafeAreaView>
   );
 }
