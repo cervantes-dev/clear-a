@@ -1,9 +1,10 @@
+import LogoutConfirmModal from "@/components/shared/LogoutConfirmModal";
 import { signOutUser } from "@/services/auth";
 import { useAuthStore } from "@/store/authStore";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useState } from "react";
-import { Alert, Modal, Pressable, Text, View } from "react-native";
+import { useRef, useState } from "react";
+import { Alert, Modal, Platform, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function StaffHeaderAvatar() {
@@ -11,6 +12,12 @@ export default function StaffHeaderAvatar() {
   const router = useRouter();
   const { user, setUser } = useAuthStore();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  // iOS drops a modal presented while another is still dismissing, so on iOS
+  // we wait for the menu's onDismiss before opening the confirm modal.
+  const openConfirmAfterMenuRef = useRef(false);
 
   const initial = user?.name?.trim()?.[0]?.toUpperCase() ?? "?";
 
@@ -19,26 +26,36 @@ export default function StaffHeaderAvatar() {
     router.push("/(staff)/settings");
   };
 
-  const handleLogout = () => {
+  const handleLogoutPress = () => {
     setMenuOpen(false);
-    Alert.alert("Log out", "Are you sure you want to log out?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Log out",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await signOutUser();
-            setUser(null);
-            // Root layout's redirect effect handles navigation to /(auth)/login
-            // once the auth store's user becomes null -- no manual router
-            // call needed here.
-          } catch (e: any) {
-            Alert.alert("Error", e.message ?? "Couldn't log out. Please try again.");
-          }
-        },
-      },
-    ]);
+    if (Platform.OS === "ios") {
+      openConfirmAfterMenuRef.current = true;
+    } else {
+      setConfirmOpen(true);
+    }
+  };
+
+  const handleMenuDismiss = () => {
+    if (openConfirmAfterMenuRef.current) {
+      openConfirmAfterMenuRef.current = false;
+      setConfirmOpen(true);
+    }
+  };
+
+  const handleConfirmLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await signOutUser();
+      setUser(null);
+      // Root layout's redirect effect handles navigation to /(auth)/login
+      // once the auth store's user becomes null -- no manual router
+      // call needed here.
+    } catch (e: any) {
+      Alert.alert("Error", e.message ?? "Couldn't log out. Please try again.");
+    } finally {
+      setLoggingOut(false);
+      setConfirmOpen(false);
+    }
   };
 
   return (
@@ -51,7 +68,13 @@ export default function StaffHeaderAvatar() {
         <Text className="text-white font-bold text-sm">{initial}</Text>
       </Pressable>
 
-      <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
+      <Modal
+        visible={menuOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuOpen(false)}
+        onDismiss={handleMenuDismiss}
+      >
         <Pressable className="flex-1" onPress={() => setMenuOpen(false)}>
           <View
             className="absolute right-5 bg-card rounded-2xl overflow-hidden"
@@ -85,7 +108,7 @@ export default function StaffHeaderAvatar() {
             </Pressable>
 
             <Pressable
-              onPress={handleLogout}
+              onPress={handleLogoutPress}
               className="flex-row items-center px-4 py-3 active:bg-background"
             >
               <Ionicons name="log-out-outline" size={18} color="#DC2626" />
@@ -94,6 +117,13 @@ export default function StaffHeaderAvatar() {
           </View>
         </Pressable>
       </Modal>
+
+      <LogoutConfirmModal
+        visible={confirmOpen}
+        loading={loggingOut}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={handleConfirmLogout}
+      />
     </>
   );
 }
