@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useRef, useState } from "react";
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import LoadingScreen from "../../components/shared/LoadingScreen";
 import HomeMenuListItem from "../../components/student/home/HomeMenuListItem";
 import FlyingCartAnimation from "../../components/student/menu/FlyingCartAnimation";
 import ItemDetailModal from "../../components/student/menu/ItemDetailModal";
@@ -124,9 +125,7 @@ export default function FavoritesScreen() {
 
       <View className="flex-1 bg-background rounded-t-3xl" style={{ marginTop: -20 }}>
         {loading ? (
-          <View className="flex-1 items-center justify-center">
-            <Text className="text-text opacity-50">Loading...</Text>
-          </View>
+          <LoadingScreen fullScreen={false} />
         ) : favoriteItems.length === 0 ? (
           <View className="flex-1 items-center justify-center px-8">
             <Ionicons name="heart-outline" size={48} color="#D1D5DB" />

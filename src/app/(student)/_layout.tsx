@@ -1,7 +1,12 @@
 import { Tabs } from "expo-router";
 import AppTabBar from "../../components/shared/AppTabBar";
+import { useFavoritesSync } from "../../hooks/useFavoritesSync";
 
 export default function StudentLayout() {
+  // Mounted once for the whole student tab group, so favorites load at
+  // login instead of depending on which screen the student opens first.
+  useFavoritesSync();
+
   return (
     <Tabs
       screenOptions={{ headerShown: false }}

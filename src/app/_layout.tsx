@@ -1,7 +1,8 @@
 import * as NavigationBar from "expo-navigation-bar";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
-import { ActivityIndicator, Platform, View } from "react-native";
+import { Platform } from "react-native";
+import LoadingScreen from "../components/shared/LoadingScreen";
 import "../global.css";
 import { getCurrentUser } from "../services/auth";
 import { supabase } from "../services/supabase";
@@ -31,23 +32,36 @@ export default function RootLayout() {
       .then(setUser)
       .catch(() => setUser(null));
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (!session) {
-          setUser(null);
-          return;
-        }
-        // Deliberately NOT calling setLoading(true) here. This fires on
-        // every session change, including the one caused by a screen's own
-        // sign-in flow (which may be mid-way through its own success
-        // animation) -- flipping the global isLoading flag would unmount
-        // the whole app tree into the boot spinner below and cut that
-        // animation off. setUser() already resolves isLoading to false, so
-        // this stays a silent background refresh.
-        const current = await getCurrentUser();
-        setUser(current);
+    // IMPORTANT: this callback must NOT be async and must NOT await any
+    // Supabase call directly. supabase-js holds an internal lock while
+    // running auth callbacks, so awaiting another Supabase request in here
+    // can deadlock the client -- every later query (cart, orders, menu)
+    // then hangs until it times out. Deferring the work with setTimeout
+    // lets the callback return and release the lock first.
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) {
+        setUser(null);
+        return;
       }
-    );
+
+      // Launch is already covered by getCurrentUser() above, and a token
+      // refresh doesn't change the profile -- refetching on either is
+      // wasted work through the exact path we're trying to keep clear.
+      if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
+
+      // Deliberately NOT calling setLoading(true) here. This fires on
+      // every session change, including the one caused by a screen's own
+      // sign-in flow (which may be mid-way through its own success
+      // animation) -- flipping the global isLoading flag would unmount
+      // the whole app tree into the boot spinner below and cut that
+      // animation off. setUser() already resolves isLoading to false, so
+      // this stays a silent background refresh.
+      setTimeout(() => {
+        getCurrentUser()
+          .then(setUser)
+          .catch(() => setUser(null));
+      }, 0);
+    });
 
     return () => listener.subscription.unsubscribe();
   }, []);
@@ -84,11 +98,7 @@ export default function RootLayout() {
   }, [isLoading, suppressRedirect, user, segments]);
 
   if (isLoading) {
-    return (
-      <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator size="large" color="#800020" />
-      </View>
-    );
+    return <LoadingScreen />;
   }
 
   return <Slot />;

@@ -1,3 +1,5 @@
+import PickupConfirmedModal from "@/components/staff/orders/PickupConfirmedModal";
+import ScanErrorModal from "@/components/staff/orders/ScanErrorModal";
 import { getOrderById, updateOrderStatus } from "@/services/order";
 import { Order } from "@/types/order";
 import { Ionicons } from "@expo/vector-icons";
@@ -8,6 +10,13 @@ import { useState } from "react";
 import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+type ConfirmedInfo = { orderLabel?: string; studentName: string | null };
+type ScanError = { title: string; message: string; icon: keyof typeof Ionicons.glyphMap };
+
+// Postgres/PostgREST codes that mean "this QR doesn't point at an order":
+// PGRST116 = .single() found no rows, 22P02 = the scanned text isn't a valid uuid.
+const INVALID_QR_CODES = ["PGRST116", "22P02"];
+
 export default function ScanScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -16,6 +25,8 @@ export default function ScanScreen() {
   const [loading, setLoading] = useState(false);
   const [order, setOrder] = useState<Order | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [confirmed, setConfirmed] = useState<ConfirmedInfo | null>(null);
+  const [scanError, setScanError] = useState<ScanError | null>(null);
 
   const handleScan = async ({ data }: { data: string }) => {
     if (scanned || loading) return;
@@ -31,9 +42,19 @@ export default function ScanScreen() {
       const fetched = await getOrderById(data);
       setOrder(fetched);
     } catch (err: any) {
-      Alert.alert("Invalid QR Code", "This doesn't match any order.", [
-        { text: "Try Again", onPress: () => setScanned(false) },
-      ]);
+      if (INVALID_QR_CODES.includes(err?.code)) {
+        setScanError({
+          title: "Invalid QR code",
+          message: "This doesn't match any order.",
+          icon: "qr-code-outline",
+        });
+      } else {
+        setScanError({
+          title: "Couldn't load order",
+          message: "Check your connection and try scanning again.",
+          icon: "cloud-offline-outline",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -44,10 +65,10 @@ export default function ScanScreen() {
     setConfirming(true);
     try {
       await updateOrderStatus(order.id, "completed");
-      Alert.alert("Pickup Confirmed", `Order #${order.orderNumber} marked as completed.`, [
-        { text: "Scan Next", onPress: resetScan },
-        { text: "Done", onPress: () => router.back() },
-      ]);
+      setConfirmed({
+        orderLabel: order.orderNumber ? `#${String(order.orderNumber).padStart(3, "0")}` : undefined,
+        studentName: order.studentName,
+      });
     } catch (err: any) {
       Alert.alert("Couldn't confirm pickup", err?.message ?? "Please try again.");
     } finally {
@@ -57,6 +78,21 @@ export default function ScanScreen() {
 
   const resetScan = () => {
     setOrder(null);
+    setScanned(false);
+  };
+
+  const handleScanNext = () => {
+    setConfirmed(null);
+    resetScan();
+  };
+
+  const handleDone = () => {
+    setConfirmed(null);
+    router.back();
+  };
+
+  const handleTryAgain = () => {
+    setScanError(null);
     setScanned(false);
   };
 
@@ -190,6 +226,22 @@ export default function ScanScreen() {
           </View>
         </View>
       )}
+
+      <PickupConfirmedModal
+        visible={confirmed !== null}
+        orderLabel={confirmed?.orderLabel}
+        studentName={confirmed?.studentName}
+        onScanNext={handleScanNext}
+        onDone={handleDone}
+      />
+
+      <ScanErrorModal
+        visible={scanError !== null}
+        title={scanError?.title ?? ""}
+        message={scanError?.message ?? ""}
+        icon={scanError?.icon}
+        onTryAgain={handleTryAgain}
+      />
     </View>
   );
 }
