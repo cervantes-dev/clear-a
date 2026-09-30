@@ -1,3 +1,4 @@
+import LoadingScreen from "@/components/shared/LoadingScreen";
 import OrderStatPill from "@/components/staff/orders/OrderStatPill";
 import StaffOrderCard from "@/components/staff/orders/StaffOrderCard";
 import { useAllOrders } from "@/hooks/useAllOrders";
@@ -126,9 +127,7 @@ export default function StaffOrdersScreen() {
                 </View>
 
                 {loading ? (
-                    <View className="flex-1 items-center justify-center">
-                        <Text className="text-gray-400">Loading orders...</Text>
-                    </View>
+                    <LoadingScreen fullScreen={false} />
                 ) : error ? (
                     <View className="flex-1 items-center justify-center px-8">
                         <Text className="text-gray-500 text-center">{error}</Text>

@@ -4,7 +4,7 @@ import { Alert, Text, TouchableOpacity, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { cancelOrder } from "../../../services/order";
 import { Order, OrderStatus } from "../../../types/order";
-import CancelOrderModal from "./CancelOrderModal";
+import CancelOrderModal from "../../shared/CancelOrderModal";
 import OrderProgressTracker from "./OrderProgressTracker";
 import PickupCountdown from "./PickupCountdown";
 
@@ -31,10 +31,13 @@ export default function OrderCard({ order, highlighted }: Props) {
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const config = STATUS_CONFIG[order.status];
-  const canCancel = order.status === "pending" || order.status === "preparing";
+  // Students can only cancel before the canteen starts preparing.
+  const canCancel = order.status === "pending";
   const showQr = order.status === "ready";
   const showTracker = order.status !== "cancelled";
   const message = STATUS_MESSAGES[order.status];
+
+  const orderLabel = order.orderNumber ? `#${String(order.orderNumber).padStart(3, "0")}` : undefined;
 
   const handleConfirmCancel = async () => {
     setCancelling(true);
@@ -57,9 +60,7 @@ export default function OrderCard({ order, highlighted }: Props) {
       }`}
     >
       <View className="flex-row items-center justify-between mb-2">
-        <Text className="text-base font-bold text-text">
-          {order.orderNumber ? `#${String(order.orderNumber).padStart(3, "0")}` : "Order"}
-        </Text>
+        <Text className="text-base font-bold text-text">{orderLabel ?? "Order"}</Text>
         <View className="px-2.5 py-1 rounded-full" style={{ backgroundColor: config.bg }}>
           <Text className="text-xs font-bold" style={{ color: config.color }}>
             {config.label}
@@ -107,10 +108,14 @@ export default function OrderCard({ order, highlighted }: Props) {
         </TouchableOpacity>
       )}
 
+      {/* `&& canCancel`: if staff starts preparing while this modal is open,
+          the status updates live and the modal closes itself instead of
+          letting the student confirm a cancel that's no longer allowed. */}
       <CancelOrderModal
-        visible={confirmVisible}
+        visible={confirmVisible && canCancel}
+        orderLabel={orderLabel}
         loading={cancelling}
-        onCancel={() => setConfirmVisible(false)}
+        onKeep={() => setConfirmVisible(false)}
         onConfirm={handleConfirmCancel}
       />
     </View>

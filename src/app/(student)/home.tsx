@@ -1,9 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import { useMemo, useRef, useState } from "react";
 import { RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import FocusAwareStatusBar from "../../components/shared/FocusAwareStatusBar";
 import CategoryFilterBar from "../../components/staff/menu/CategoryFilterBar";
 import ActiveOrderCard from "../../components/student/home/ActiveOrderCard";
 import HomeMenuCard from "../../components/student/home/HomeMenuCard";
@@ -167,7 +167,9 @@ export default function StudentHomeScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <StatusBar style="dark" />
+      {/* Focus-aware: Home is the only tab with a light background, so it
+          needs dark status-bar icons re-applied every time it regains focus. */}
+      <FocusAwareStatusBar style="dark" />
 
       <ScrollView
         ref={scrollViewRef}

@@ -7,11 +7,21 @@ export async function getFavoriteIds(): Promise<string[]> {
 }
 
 export async function addFavorite(itemId: string): Promise<void> {
-  const { data: userData } = await supabase.auth.getUser();
-  const userId = userData.user?.id;
+  // getSession() reads the locally stored session -- no network round trip,
+  // unlike getUser() which hits the auth server on every call. RLS on the
+  // favorites table still enforces that user_id must equal auth.uid().
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user.id;
   if (!userId) throw new Error("Not authenticated");
 
-  const { error } = await supabase.from("favorites").insert({ user_id: userId, item_id: itemId });
+  // Idempotent add: if the row already exists (stale local state, double tap,
+  // another device), ignore the duplicate instead of throwing 23505.
+  const { error } = await supabase
+    .from("favorites")
+    .upsert(
+      { user_id: userId, item_id: itemId },
+      { onConflict: "user_id,item_id", ignoreDuplicates: true }
+    );
   if (error) throw error;
 }
 
