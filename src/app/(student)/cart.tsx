@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Animated,
@@ -17,6 +17,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import LoadingScreen from "../../components/shared/LoadingScreen";
 import { placeOrder } from "../../services/order";
 import { CartLine, useCartStore } from "../../store/cartStore";
+
+const LOAD_TIMEOUT_MS = 10000;
 
 function CartLineRow({ line }: { line: CartLine }) {
   const incrementLine = useCartStore((s) => s.incrementLine);
@@ -102,9 +104,46 @@ export default function CartScreen() {
   const insets = useSafeAreaInsets();
   const lines = useCartStore((s) => s.lines);
   const loaded = useCartStore((s) => s.loaded);
+  const loadCart = useCartStore((s) => s.loadCart);
   const total = useCartStore((s) => s.total());
   const clear = useCartStore((s) => s.clear);
   const [placing, setPlacing] = useState(false);
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
+
+  // Tab screens (even hidden `href: null` ones) stay mounted after you
+  // navigate away, so `placing` never resets by unmounting. Reset it when the
+  // screen loses focus instead -- it happens while the screen is off-screen,
+  // so the normal cart UI never flashes in during the redirect to Orders.
+  useFocusEffect(
+    useCallback(() => {
+      return () => setPlacing(false);
+    }, [])
+  );
+
+  // Don't rely on some other screen/hook having loaded the cart first: if
+  // it hasn't loaded yet, load it here. If the request hasn't settled after
+  // LOAD_TIMEOUT_MS, stop showing an endless spinner and offer a retry.
+  // If it resolves after the timeout, `loaded` flips and the UI recovers.
+  const fetchCart = useCallback(async () => {
+    setLoadTimedOut(false);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<"timeout">((resolve) => {
+      timer = setTimeout(() => resolve("timeout"), LOAD_TIMEOUT_MS);
+    });
+
+    const result = await Promise.race([loadCart().then(() => "ok" as const), timeout]);
+    if (timer) clearTimeout(timer);
+
+    if (result === "timeout" && !useCartStore.getState().loaded) {
+      setLoadTimedOut(true);
+    }
+  }, [loadCart]);
+
+  useEffect(() => {
+    if (!useCartStore.getState().loaded) {
+      fetchCart();
+    }
+  }, [fetchCart]);
 
   const handleCheckout = async () => {
     if (lines.length === 0) return;
@@ -130,12 +169,11 @@ export default function CartScreen() {
       setPlacing(false);
     }
     // No `finally` here -- on success we're navigating away via replace(),
-    // so we deliberately leave `placing` true until this screen unmounts
-    // rather than flashing the normal cart UI back in for a frame first.
+    // so we deliberately leave `placing` true and let the blur cleanup in
+    // useFocusEffect above reset it once the screen is off-screen.
   };
 
-  // Same pattern as the root layout's isLoading screen (early-return a
-  // full-screen loader in place of the normal UI).
+  // Blocking transition: takes over the whole screen while the order is placed.
   if (placing) {
     return <LoadingScreen label="LOADING" />;
   }
@@ -158,9 +196,24 @@ export default function CartScreen() {
       {/* Rounded-top sheet, same reveal pattern as staff screens */}
       <View className="flex-1 bg-background rounded-t-3xl" style={{ marginTop: -20 }}>
         {!loaded ? (
-          <View className="flex-1 items-center justify-center">
-            <Text className="text-text opacity-50">Loading your cart...</Text>
-          </View>
+          loadTimedOut ? (
+            <View className="flex-1 items-center justify-center px-8">
+              <View className="w-16 h-16 rounded-full bg-primary/10 items-center justify-center mb-4">
+                <Ionicons name="cloud-offline-outline" size={28} color="#800020" />
+              </View>
+              <Text className="text-text font-bold text-base text-center mb-1">
+                Couldn't load your cart
+              </Text>
+              <Text className="text-text opacity-50 text-sm text-center mb-6">
+                This is taking longer than expected. Check your connection and try again.
+              </Text>
+              <TouchableOpacity onPress={fetchCart} className="bg-primary rounded-full px-6 py-3">
+                <Text className="text-white font-bold">Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <LoadingScreen fullScreen={false} />
+          )
         ) : lines.length === 0 ? (
           <View className="flex-1 items-center justify-center px-8">
             <View className="w-16 h-16 rounded-full bg-primary/10 items-center justify-center mb-4">

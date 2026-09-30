@@ -63,11 +63,21 @@ function BladeSpinner({ size = 34, color = "#800020" }: { size?: number; color?:
 
 type Props = {
   label?: string;
+  /**
+   * true (default): takes over the whole screen with the tinted backdrop --
+   * for boot and blocking transitions (root layout, placing an order).
+   * false: fills its parent with a transparent background, so it can sit
+   * inside a screen's content sheet and leave the header visible.
+   */
+  fullScreen?: boolean;
 };
 
-export default function LoadingScreen({ label = "LOADING" }: Props) {
+export default function LoadingScreen({ label = "LOADING", fullScreen = true }: Props) {
   return (
-    <View className="flex-1 items-center justify-center" style={{ backgroundColor: "#FBF1F2" }}>
+    <View
+      className="flex-1 items-center justify-center"
+      style={fullScreen ? { backgroundColor: "#FBF1F2" } : undefined}
+    >
       <View className="flex-row items-center">
         <BladeSpinner />
         <Text

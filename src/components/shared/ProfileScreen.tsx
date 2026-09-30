@@ -1,5 +1,6 @@
 import ChangePasswordModal from "@/components/shared/ChangePasswordModal";
 import EditNameModal from "@/components/shared/EditNameModal";
+import LogoutConfirmModal from "@/components/shared/LogoutConfirmModal";
 import { TAB_BAR_CLEARANCE } from "@/constants/layout";
 import { changePassword, signOutUser, updateProfileName } from "@/services/auth";
 import { useAuthStore } from "@/store/authStore";
@@ -35,6 +36,9 @@ export default function ProfileScreen() {
 
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+
+  const [logoutVisible, setLogoutVisible] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const appVersion = Constants.expoConfig?.version ?? "—";
 
@@ -84,22 +88,19 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert("Log out", "Are you sure you want to log out?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Log out",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await signOutUser();
-            setUser(null);
-          } catch (e: any) {
-            Alert.alert("Error", e.message ?? "Couldn't log out. Please try again.");
-          }
-        },
-      },
-    ]);
+  const handleConfirmLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await signOutUser();
+      setUser(null);
+      // Root layout's redirect effect handles navigation to /(auth)/login
+      // once the auth store's user becomes null.
+    } catch (e: any) {
+      Alert.alert("Error", e.message ?? "Couldn't log out. Please try again.");
+    } finally {
+      setLoggingOut(false);
+      setLogoutVisible(false);
+    }
   };
 
   const memberSince = formatMemberSince(user?.createdAt);
@@ -230,7 +231,7 @@ export default function ProfileScreen() {
           </View>
 
           <Pressable
-            onPress={handleLogout}
+            onPress={() => setLogoutVisible(true)}
             className="flex-row items-center justify-center bg-danger/10 rounded-2xl py-3.5 mb-5"
           >
             <Ionicons name="log-out-outline" size={18} color="#DC2626" />
@@ -254,6 +255,13 @@ export default function ProfileScreen() {
         saving={savingPassword}
         onClose={() => setPasswordVisible(false)}
         onSave={handleChangePassword}
+      />
+
+      <LogoutConfirmModal
+        visible={logoutVisible}
+        loading={loggingOut}
+        onCancel={() => setLogoutVisible(false)}
+        onConfirm={handleConfirmLogout}
       />
     </View>
   );

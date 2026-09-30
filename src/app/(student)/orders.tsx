@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import LoadingScreen from "../../components/shared/LoadingScreen";
 import PickupInfoModal from "../../components/student/home/PickupInfoModal";
 import OrderCard from "../../components/student/orders/OrderCard";
 import { useMyOrders } from "../../hooks/useMyOrders";
@@ -102,9 +103,7 @@ export default function StudentOrdersScreen() {
         )}
 
         {loading ? (
-          <View className="flex-1 items-center justify-center">
-            <Text className="text-text opacity-50">Loading your orders...</Text>
-          </View>
+          <LoadingScreen fullScreen={false} />
         ) : error ? (
           <View className="flex-1 items-center justify-center px-8">
             <Text className="text-text opacity-60 text-center">{error}</Text>

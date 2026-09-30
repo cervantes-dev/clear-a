@@ -1,3 +1,4 @@
+import CancelOrderModal from "@/components/shared/CancelOrderModal";
 import { updateOrderStatus } from "@/services/order";
 import { Order, OrderStatus } from "@/types/order";
 import { Ionicons } from "@expo/vector-icons";
@@ -27,8 +28,16 @@ function formatTime(iso: string): string {
 
 export default function StaffOrderCard({ order }: Props) {
     const [updating, setUpdating] = useState(false);
+    const [cancelVisible, setCancelVisible] = useState(false);
+    const [cancelling, setCancelling] = useState(false);
     const config = STATUS_CONFIG[order.status];
     const nextAction = NEXT_STATUS[order.status];
+
+    // Cancelling is only allowed before preparation starts -- once the
+    // kitchen has begun, cancelling would hurt the student's pickup.
+    const canCancel = order.status === "pending";
+
+    const orderLabel = order.orderNumber ? `#${String(order.orderNumber).padStart(3, "0")}` : undefined;
 
     const handleAdvance = async () => {
         if (!nextAction) return;
@@ -43,25 +52,17 @@ export default function StaffOrderCard({ order }: Props) {
         }
     };
 
-    const handleCancel = () => {
-        Alert.alert("Cancel this order?", `Order #${order.orderNumber} will be cancelled.`, [
-            { text: "Keep order", style: "cancel" },
-            {
-                text: "Cancel order",
-                style: "destructive",
-                onPress: async () => {
-                    setUpdating(true);
-                    try {
-                        await updateOrderStatus(order.id, "cancelled");
-                    } catch (err: any) {
-                        console.error("Failed to cancel order:", err);
-                        Alert.alert("Couldn't cancel", err?.message ?? "Please try again.");
-                    } finally {
-                        setUpdating(false);
-                    }
-                },
-            },
-        ]);
+    const handleConfirmCancel = async () => {
+        setCancelling(true);
+        try {
+            await updateOrderStatus(order.id, "cancelled");
+        } catch (err: any) {
+            console.error("Failed to cancel order:", err);
+            Alert.alert("Couldn't cancel", err?.message ?? "Please try again.");
+        } finally {
+            setCancelling(false);
+            setCancelVisible(false);
+        }
     };
 
     return (
@@ -122,29 +123,27 @@ export default function StaffOrderCard({ order }: Props) {
                 </View>
             )}
 
-            {(nextAction || order.status === "pending" || order.status === "preparing") && (
+            {nextAction && (
                 <View className="flex-row gap-2 mt-3">
-                    {nextAction && (
-                        <TouchableOpacity
-                            onPress={handleAdvance}
-                            disabled={updating}
-                            className={`flex-1 flex-row items-center justify-center rounded-full py-3 ${updating ? "bg-gray-300" : "bg-primary"
-                                }`}
-                        >
-                            {updating ? (
-                                <ActivityIndicator size="small" color="#fff" />
-                            ) : (
-                                <>
-                                    <Ionicons name={nextAction.icon} size={16} color="#fff" />
-                                    <Text className="text-white text-sm font-bold ml-2">{nextAction.label}</Text>
-                                </>
-                            )}
-                        </TouchableOpacity>
-                    )}
+                    <TouchableOpacity
+                        onPress={handleAdvance}
+                        disabled={updating}
+                        className={`flex-1 flex-row items-center justify-center rounded-full py-3 ${updating ? "bg-gray-300" : "bg-primary"
+                            }`}
+                    >
+                        {updating ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                            <>
+                                <Ionicons name={nextAction.icon} size={16} color="#fff" />
+                                <Text className="text-white text-sm font-bold ml-2">{nextAction.label}</Text>
+                            </>
+                        )}
+                    </TouchableOpacity>
 
-                    {(order.status === "pending" || order.status === "preparing") && (
+                    {canCancel && (
                         <TouchableOpacity
-                            onPress={handleCancel}
+                            onPress={() => setCancelVisible(true)}
                             disabled={updating}
                             className="flex-1 flex-row items-center justify-center rounded-full py-3 border border-danger"
                         >
@@ -154,6 +153,16 @@ export default function StaffOrderCard({ order }: Props) {
                     )}
                 </View>
             )}
+
+            {/* `&& canCancel`: if the status changes while the modal is open
+                (e.g. another staff device starts preparing), it closes itself. */}
+            <CancelOrderModal
+                visible={cancelVisible && canCancel}
+                orderLabel={orderLabel}
+                loading={cancelling}
+                onKeep={() => setCancelVisible(false)}
+                onConfirm={handleConfirmCancel}
+            />
         </View>
     );
 }
