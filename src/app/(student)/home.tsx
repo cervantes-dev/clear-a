@@ -80,6 +80,7 @@ export default function StudentHomeScreen() {
   const markAllSeen = useNotificationStore((state) => state.markAllSeen);
   const dismissedIds = useNotificationStore((state) => state.dismissedIds);
   const dismissNotification = useNotificationStore((state) => state.dismiss);
+  const notificationsLoaded = useNotificationStore((state) => state.loaded);
 
   const firstName = user ? getFirstName(user.name) : "";
   const avatarInitial = user?.name?.trim()?.[0]?.toUpperCase() ?? "?";
@@ -93,11 +94,15 @@ export default function StudentHomeScreen() {
     return all.filter((n) => !dismissedIds.has(n.id));
   }, [myOrders, dismissedIds]);
 
+  // Until the server state (dismissed ids + last seen time) has loaded,
+  // `lastSeenAt` is null and everything would count as unread -- show no
+  // badge instead of flashing a wrong number on launch.
   const unreadCount = useMemo(() => {
+    if (!notificationsLoaded) return 0;
     if (!lastSeenAt) return notifications.length;
     const seenTime = new Date(lastSeenAt).getTime();
     return notifications.filter((n) => new Date(n.timestamp).getTime() > seenTime).length;
-  }, [notifications, lastSeenAt]);
+  }, [notifications, lastSeenAt, notificationsLoaded]);
 
   const specials = menuItems.filter((i) => i.isSpecial && i.available);
 
