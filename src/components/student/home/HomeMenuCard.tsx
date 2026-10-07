@@ -1,7 +1,9 @@
 // components/student/home/HomeMenuCard.tsx
 import { Ionicons } from "@expo/vector-icons";
-import { Image, Text, TouchableOpacity, View } from "react-native";
+import { Image, Text, View } from "react-native";
 import { MenuItem } from "../../../types/menu";
+import AnimatedHeartButton from "../../shared/AnimatedHeartButton";
+import PressableScale from "../../shared/PressableScale";
 
 type Props = {
   item: MenuItem;
@@ -34,7 +36,7 @@ export default function HomeMenuCard({
   const disabled = !item.available || isSoldOut;
 
   return (
-    <TouchableOpacity
+    <PressableScale
       disabled={disabled}
       onPress={() => onPress(item)}
       className={`w-40 mr-3 bg-card rounded-2xl border border-border overflow-hidden ${disabled ? "opacity-50" : ""}`}
@@ -61,20 +63,13 @@ export default function HomeMenuCard({
           </View>
         )}
 
-        <TouchableOpacity
-          onPress={(e) => {
-            e.stopPropagation();
-            onToggleFavorite(item);
-          }}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        <AnimatedHeartButton
+          active={isFavorite}
+          onToggle={() => onToggleFavorite(item)}
+          size={14}
+          inactiveColor="#fff"
           className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/30 items-center justify-center"
-        >
-          <Ionicons
-            name={isFavorite ? "heart" : "heart-outline"}
-            size={14}
-            color={isFavorite ? "#F26B1D" : "#fff"}
-          />
-        </TouchableOpacity>
+        />
       </View>
 
       <View className="p-2.5">
@@ -88,7 +83,9 @@ export default function HomeMenuCard({
           </Text>
 
           {!disabled && (
-            <TouchableOpacity
+            <PressableScale
+              scaleTo={0.88}
+              haptic="tap"
               onPress={(e) => {
                 e.stopPropagation();
                 onQuickAdd(item);
@@ -97,10 +94,10 @@ export default function HomeMenuCard({
               className="w-7 h-7 rounded-full bg-primary items-center justify-center ml-2"
             >
               <Ionicons name="add" size={16} color="#fff" />
-            </TouchableOpacity>
+            </PressableScale>
           )}
         </View>
       </View>
-    </TouchableOpacity>
+    </PressableScale>
   );
 }

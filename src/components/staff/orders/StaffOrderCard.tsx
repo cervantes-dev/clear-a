@@ -114,6 +114,16 @@ export default function StaffOrderCard({ order }: Props) {
                 ))}
             </View>
 
+            {order.note ? (
+                <View className="flex-row items-start bg-amber-50 border border-amber-200 rounded-xl mt-3 px-3 py-2.5">
+                    <Ionicons name="chatbox-ellipses" size={15} color="#D97706" style={{ marginTop: 1 }} />
+                    <View className="flex-1 ml-2">
+                        <Text className="text-[10px] font-bold text-amber-700 uppercase">Customer note</Text>
+                        <Text className="text-sm text-text mt-0.5">{order.note}</Text>
+                    </View>
+                </View>
+            ) : null}
+
             {order.status === "ready" && (
                 <View className="flex-row items-center bg-green-50 rounded-xl mt-3 px-3 py-2.5">
                     <Ionicons name="qr-code-outline" size={16} color="#2E7D32" />
