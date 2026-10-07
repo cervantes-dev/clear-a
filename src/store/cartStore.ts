@@ -8,13 +8,22 @@ export type { CartLine };
 interface CartState {
   lines: CartLine[];
   loaded: boolean;
-  loadCart: () => Promise<void>;
+  // Resolves true when the cart is in sync with the server (or a newer load /
+  // a reset superseded this one), false when the fetch failed so the caller
+  // can show a retry instead of an empty cart.
+  loadCart: () => Promise<boolean>;
   reset: () => void;
   addItem: (item: MenuItem, variant: MenuItemVariant | null, quantity?: number) => Promise<void>;
   incrementLine: (id: string) => Promise<void>;
   decrementLine: (id: string) => Promise<void>;
+  setLineQuantity: (id: string, quantity: number) => Promise<void>;
   removeLine: (id: string) => Promise<void>;
-  clear: () => Promise<void>;
+  // Puts a previously removed line back (undo), at its old position if known.
+  restoreLine: (line: CartLine, index?: number) => Promise<void>;
+  // keepEmptyOnError: after a successful checkout the cart must stay empty
+  // locally even if the server-side clear fails -- reverting would show items
+  // that were already ordered.
+  clear: (opts?: { keepEmptyOnError?: boolean }) => Promise<void>;
   total: () => number;
   itemCount: () => number;
   // Called by the realtime subscription (see hooks/useCartSync.ts) when a
@@ -23,21 +32,34 @@ interface CartState {
   _applyRemoteDelete: (id: string) => void;
 }
 
+// Bumped on every load and on reset, so a slow response from a previous load
+// (or a previous account) can't overwrite newer state.
+let loadSeq = 0;
+
 export const useCartStore = create<CartState>((set, get) => ({
   lines: [],
   loaded: false,
 
   loadCart: async () => {
+    const seq = ++loadSeq;
     try {
       const lines = await getCartItems();
+      if (seq !== loadSeq) return true;
       set({ lines, loaded: true });
+      return true;
     } catch (err) {
+      if (seq !== loadSeq) return true;
+      // Deliberately NOT marking loaded: a failed load must not look like
+      // "your cart is empty". The caller shows a retry instead.
       console.error("Failed to load cart:", err);
-      set({ loaded: true });
+      return false;
     }
   },
 
-  reset: () => set({ lines: [], loaded: false }),
+  reset: () => {
+    loadSeq++;
+    set({ lines: [], loaded: false });
+  },
 
   addItem: async (item, variant, quantity = 1) => {
     const unitPrice = variant ? variant.price : item.price ?? 0;
@@ -147,6 +169,31 @@ export const useCartStore = create<CartState>((set, get) => ({
     }
   },
 
+  // Used by "Fix cart" to lower a line to what's actually in stock.
+  setLineQuantity: async (id, quantity) => {
+    const line = get().lines.find((l) => l.id === id);
+    if (!line) return;
+    if (quantity <= 0) {
+      await get().removeLine(id);
+      return;
+    }
+    const prevQty = line.quantity;
+    if (quantity === prevQty) return;
+
+    set((state) => ({
+      lines: state.lines.map((l) => (l.id === id ? { ...l, quantity } : l)),
+    }));
+
+    try {
+      await setCartItemQuantity(id, quantity);
+    } catch (err) {
+      console.error("Failed to set quantity:", err);
+      set((state) => ({
+        lines: state.lines.map((l) => (l.id === id ? { ...l, quantity: prevQty } : l)),
+      }));
+    }
+  },
+
   removeLine: async (id) => {
     const prevLines = get().lines;
     set((state) => ({ lines: state.lines.filter((l) => l.id !== id) }));
@@ -158,14 +205,62 @@ export const useCartStore = create<CartState>((set, get) => ({
     }
   },
 
-  clear: async () => {
+  restoreLine: async (line, index) => {
+    const tempId = `temp-restore-${line.menuItemId}-${line.variantId ?? "base"}-${Date.now()}`;
+    let mergedExistingId: string | null = null;
+
+    set((state) => {
+      // The student may have re-added the same item since removing it:
+      // merge quantities instead of creating a duplicate line.
+      const existing = state.lines.find(
+        (l) => l.menuItemId === line.menuItemId && l.variantId === line.variantId
+      );
+      if (existing) {
+        mergedExistingId = existing.id;
+        return {
+          lines: state.lines.map((l) =>
+            l.id === existing.id ? { ...l, quantity: l.quantity + line.quantity } : l
+          ),
+        };
+      }
+
+      const next = [...state.lines];
+      next.splice(Math.min(index ?? next.length, next.length), 0, { ...line, id: tempId });
+      return { lines: next };
+    });
+
+    try {
+      const result = await addToCart(line.menuItemId, line.variantId, line.quantity);
+      set((state) => ({
+        lines: state.lines.map((l) =>
+          l.id === tempId || l.id === mergedExistingId
+            ? { ...l, id: result.id, quantity: result.quantity }
+            : l
+        ),
+      }));
+    } catch (err) {
+      console.error("Failed to restore cart item:", err);
+      set((state) => {
+        if (mergedExistingId) {
+          return {
+            lines: state.lines.map((l) =>
+              l.id === mergedExistingId ? { ...l, quantity: l.quantity - line.quantity } : l
+            ),
+          };
+        }
+        return { lines: state.lines.filter((l) => l.id !== tempId) };
+      });
+    }
+  },
+
+  clear: async (opts) => {
     const prevLines = get().lines;
     set({ lines: [] });
     try {
       await clearCartService();
     } catch (err) {
       console.error("Failed to clear cart:", err);
-      set({ lines: prevLines });
+      if (!opts?.keepEmptyOnError) set({ lines: prevLines });
     }
   },
 

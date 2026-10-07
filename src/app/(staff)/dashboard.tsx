@@ -15,6 +15,7 @@ import StaffHeaderAvatar from "../../components/staff/StaffHeaderAvatar";
 import { useAllOrders } from "../../hooks/useAllOrders";
 import { useAuthStore } from "../../store/authStore";
 import { Order, OrderStatus } from "../../types/order";
+import { lastManilaDays, todayManila, weekdayShort } from "../../utils/date";
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   pending: "Pending",
@@ -26,10 +27,6 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
 const TAB_BAR_CLEARANCE = 64 + 40 + 24;
 
 type ChartKey = "revenue" | "orders" | "status";
-
-function todayDateString(): string {
-  return new Date().toISOString().split("T")[0];
-}
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -57,7 +54,9 @@ export default function Dashboard() {
   const [notificationsVisible, setNotificationsVisible] = useState(false);
   const [readOrderIds, setReadOrderIds] = useState<Set<string>>(new Set());
 
-  const today = todayDateString();
+  // Manila calendar date -- matches the order_date the database stamps on
+  // each order (Postgres current_date, now on Manila time).
+  const today = todayManila();
 
   // Stamp the first successful load, and again after every pull-to-refresh.
   useEffect(() => {
@@ -71,16 +70,12 @@ export default function Dashboard() {
 
   const goToOrders = () => router.push("/(staff)/orders");
 
-  const last7Days = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
-      d.setDate(d.getDate() - (6 - i));
-      return {
-        dateStr: d.toISOString().split("T")[0],
-        label: d.toLocaleDateString(undefined, { weekday: "short" }).slice(0, 3),
-      };
-    });
-  }, []);
+  // Recomputed when the Manila date changes, so a dashboard left open past
+  // midnight rolls its 7-day window forward instead of going stale.
+  const last7Days = useMemo(
+    () => lastManilaDays(7).map((dateStr) => ({ dateStr, label: weekdayShort(dateStr) })),
+    [today]
+  );
 
   const { stats, recentOrders, revenueData, ordersData, statusData, pendingOrders } = useMemo(() => {
     const todayOrders = orders.filter((o) => o.orderDate === today);
@@ -180,7 +175,13 @@ export default function Dashboard() {
     goToOrders();
   };
 
-  const todayLabel = new Date().toLocaleDateString(undefined, { month: "long", day: "numeric" });
+  // Noon UTC on the Manila date can't slip to an adjacent day in any phone
+  // timezone, so the label always matches `today`.
+  const todayLabel = new Date(`${today}T12:00:00Z`).toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
   const updatedLabel = lastUpdated
     ? lastUpdated.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
     : null;

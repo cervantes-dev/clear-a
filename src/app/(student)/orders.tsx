@@ -1,18 +1,24 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import LoadingScreen from "../../components/shared/LoadingScreen";
+import UndoSnackbar from "../../components/shared/UndoSnackbar";
 import PickupInfoModal from "../../components/student/home/PickupInfoModal";
 import OrderCard from "../../components/student/orders/OrderCard";
 import { useMyOrders } from "../../hooks/useMyOrders";
 import { useCartStore } from "../../store/cartStore";
+import { Order } from "../../types/order";
+import { haptics } from "../../utils/haptics";
+import { reorderToCart } from "../../utils/reorder";
 
 const ACTIVE_STATUSES = ["pending", "preparing", "ready"];
 
 type FilterKey = "active" | "history";
+
+type Toast = { message: string; actionLabel?: string; token: number };
 
 export default function StudentOrdersScreen() {
   const router = useRouter();
@@ -21,8 +27,18 @@ export default function StudentOrdersScreen() {
   const { orders, loading, refreshing, error, refresh } = useMyOrders();
   const [pickupInfoVisible, setPickupInfoVisible] = useState(false);
   const [filter, setFilter] = useState<FilterKey>("active");
+  const [reorderingId, setReorderingId] = useState<string | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
 
   const itemCount = useCartStore((s) => s.itemCount());
+
+  // Tab screens stay mounted when you leave them: don't let a toast linger
+  // until the next visit.
+  useFocusEffect(
+    useCallback(() => {
+      return () => setToast(null);
+    }, [])
+  );
 
   const active = orders.filter((o) => ACTIVE_STATUSES.includes(o.status));
   const history = orders.filter((o) => !ACTIVE_STATUSES.includes(o.status));
@@ -36,6 +52,32 @@ export default function StudentOrdersScreen() {
     ],
     [active.length, history.length]
   );
+
+  const handleReorder = async (order: Order) => {
+    if (reorderingId) return;
+    setReorderingId(order.id);
+    try {
+      const { added, skipped, reduced } = await reorderToCart(order);
+
+      if (added === 0) {
+        haptics.warning();
+        setToast({ message: "None of these items are available right now.", token: Date.now() });
+        return;
+      }
+
+      haptics.success();
+      const parts = [`Added ${added} item${added !== 1 ? "s" : ""} to your cart`];
+      if (skipped > 0) parts.push(`${skipped} unavailable`);
+      if (reduced > 0) parts.push("quantity limited by stock");
+      setToast({ message: parts.join(" · "), actionLabel: "View cart", token: Date.now() });
+    } catch (err) {
+      console.error("Failed to reorder:", err);
+      haptics.warning();
+      setToast({ message: "Couldn't reorder. Please try again.", token: Date.now() });
+    } finally {
+      setReorderingId(null);
+    }
+  };
 
   return (
     <View className="flex-1 bg-background">
@@ -55,6 +97,8 @@ export default function StudentOrdersScreen() {
           <TouchableOpacity
             className="w-11 h-11 rounded-full bg-white/15 items-center justify-center mr-2"
             onPress={() => setPickupInfoVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel="How pickup works"
           >
             <Ionicons name="information-circle-outline" size={22} color="#fff" />
           </TouchableOpacity>
@@ -62,6 +106,8 @@ export default function StudentOrdersScreen() {
           <TouchableOpacity
             className="w-11 h-11 rounded-full bg-white/15 items-center justify-center"
             onPress={() => router.push("/(student)/cart")}
+            accessibilityRole="button"
+            accessibilityLabel={itemCount > 0 ? `Cart, ${itemCount} items` : "Cart"}
           >
             <Ionicons name="cart-outline" size={22} color="#fff" />
             {itemCount > 0 && (
@@ -143,13 +189,38 @@ export default function StudentOrdersScreen() {
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
           >
             {displayedOrders.map((order) => (
-              <OrderCard key={order.id} order={order} highlighted={order.id === justPlaced} />
+              <OrderCard
+                key={order.id}
+                order={order}
+                highlighted={order.id === justPlaced}
+                onReorder={handleReorder}
+                reordering={reorderingId === order.id}
+              />
             ))}
           </ScrollView>
         )}
       </View>
 
       <PickupInfoModal visible={pickupInfoVisible} onClose={() => setPickupInfoVisible(false)} />
+
+      {toast && (
+        <UndoSnackbar
+          token={toast.token}
+          message={toast.message}
+          actionLabel={toast.actionLabel}
+          onAction={
+            toast.actionLabel
+              ? () => {
+                  setToast(null);
+                  router.push("/(student)/cart");
+                }
+              : undefined
+          }
+          // Clear the floating tab bar, which sits above the bottom edge.
+          bottom={insets.bottom + 104}
+          onDismiss={() => setToast(null)}
+        />
+      )}
     </View>
   );
 }

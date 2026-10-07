@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
+import Animated, { ZoomIn } from "react-native-reanimated";
 import { cancelOrder } from "../../../services/order";
 import { Order, OrderStatus } from "../../../types/order";
 import CancelOrderModal from "../../shared/CancelOrderModal";
@@ -11,6 +12,9 @@ import PickupCountdown from "./PickupCountdown";
 type Props = {
   order: Order;
   highlighted?: boolean;
+  /** When given, finished orders (completed / cancelled) get an "Order again" button. */
+  onReorder?: (order: Order) => void;
+  reordering?: boolean;
 };
 
 const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string; bg: string }> = {
@@ -27,12 +31,13 @@ const STATUS_MESSAGES: Partial<Record<OrderStatus, string>> = {
   ready: "Order ready! Show your QR code at pickup.",
 };
 
-export default function OrderCard({ order, highlighted }: Props) {
+export default function OrderCard({ order, highlighted, onReorder, reordering = false }: Props) {
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const config = STATUS_CONFIG[order.status];
   // Students can only cancel before the canteen starts preparing.
   const canCancel = order.status === "pending";
+  const canReorder = !!onReorder && (order.status === "completed" || order.status === "cancelled");
   const showQr = order.status === "ready";
   const showTracker = order.status !== "cancelled";
   const message = STATUS_MESSAGES[order.status];
@@ -81,6 +86,13 @@ export default function OrderCard({ order, highlighted }: Props) {
         </Text>
       ))}
 
+      {order.note ? (
+        <View className="flex-row items-start mt-2">
+          <Ionicons name="chatbox-ellipses-outline" size={13} color="#9CA3AF" style={{ marginTop: 1 }} />
+          <Text className="text-xs text-text opacity-60 ml-1.5 flex-1">{order.note}</Text>
+        </View>
+      ) : null}
+
       <View className="flex-row items-center justify-between mt-3">
         <Text className="text-sm font-bold text-primary">₱{order.total.toFixed(2)}</Text>
 
@@ -90,12 +102,21 @@ export default function OrderCard({ order, highlighted }: Props) {
       </View>
 
       {showQr && (
-        <View className="items-center bg-background rounded-2xl mt-4 py-5 border border-border">
-          <QRCode value={order.id} size={148} />
-          <Text className="text-xs text-text opacity-50 mt-3 text-center px-6">
-            Show this to the canteen staff to confirm pickup
-          </Text>
-        </View>
+        // The QR springs in the moment the order becomes ready. (Reanimated
+        // entering animations go on a wrapper with a plain style, not on a
+        // className view.)
+        <Animated.View entering={ZoomIn.springify().damping(14)}>
+          <View
+            className="items-center bg-background rounded-2xl mt-4 py-5 border border-border"
+            accessible
+            accessibilityLabel="Pickup QR code. Show this to the canteen staff."
+          >
+            <QRCode value={order.id} size={148} />
+            <Text className="text-xs text-text opacity-50 mt-3 text-center px-6">
+              Show this to the canteen staff to confirm pickup
+            </Text>
+          </View>
+        </Animated.View>
       )}
 
       {canCancel && (
@@ -105,6 +126,22 @@ export default function OrderCard({ order, highlighted }: Props) {
         >
           <Ionicons name="close-circle-outline" size={16} color="#D32F2F" />
           <Text className="text-danger text-sm font-semibold ml-1.5">Cancel Order</Text>
+        </TouchableOpacity>
+      )}
+
+      {canReorder && (
+        <TouchableOpacity
+          onPress={() => onReorder?.(order)}
+          disabled={reordering}
+          className="mt-3 flex-row items-center justify-center bg-primary/10 rounded-full py-2.5"
+          style={{ opacity: reordering ? 0.6 : 1 }}
+          accessibilityRole="button"
+          accessibilityLabel={`Order ${orderLabel ?? "this order"} again`}
+        >
+          <Ionicons name="repeat" size={16} color="#800020" />
+          <Text className="text-primary text-sm font-bold ml-1.5">
+            {reordering ? "Adding to cart..." : "Order again"}
+          </Text>
         </TouchableOpacity>
       )}
 

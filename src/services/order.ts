@@ -1,4 +1,5 @@
 import { DailyStock, Order, OrderItem, OrderStatus, PlaceOrderInput } from "../types/order";
+import { todayManila } from "../utils/date";
 import { supabase } from "./supabase";
 
 function mapOrderItemRow(row: any): OrderItem {
@@ -23,6 +24,7 @@ function mapOrderRow(row: any): Order {
     orderDate: row.order_date,
     status: row.status,
     total: Number(row.total),
+    note: row.note ?? null,
     createdAt: row.created_at,
     readyAt: row.ready_at,
     pickupDeadline: row.pickup_deadline,
@@ -42,12 +44,15 @@ const ORDER_SELECT = "*, order_items(*), profiles(name)";
  * only the new order's id).
  */
 export async function placeOrder(input: PlaceOrderInput): Promise<Order> {
+  const note = input.note?.trim();
+
   const { data: orderId, error } = await supabase.rpc("place_order", {
     items: input.items.map((i) => ({
       menu_item_id: i.menuItemId,
       variant_id: i.variantId,
       quantity: i.quantity,
     })),
+    p_note: note ? note : null,
   });
 
   if (error) throw error;
@@ -96,7 +101,7 @@ export async function getAllOrders(status?: OrderStatus): Promise<Order[]> {
 
 /**
  * Student cancels their own order. RLS only permits this while status is
- * 'pending' or 'preparing' -- a 'ready' order will be rejected by the DB.
+ * 'pending' -- once staff starts preparing, the DB rejects it.
  */
 export async function cancelOrder(id: string): Promise<void> {
   const { error } = await supabase.from("orders").update({ status: "cancelled" }).eq("id", id);
@@ -114,11 +119,12 @@ export async function getTodaysStock(): Promise<Record<string, DailyStock>> {
 
   if (error) throw error;
 
+  const today = todayManila();
   const map: Record<string, DailyStock> = {};
   for (const row of data) {
     map[row.menu_item_id] = {
       menuItemId: row.menu_item_id,
-      stockDate: new Date().toISOString().split("T")[0],
+      stockDate: today,
       initialQuantity: row.remaining_quantity, // not meaningful pre-seed; display uses remaining
       remainingQuantity: row.remaining_quantity,
     };
@@ -128,16 +134,16 @@ export async function getTodaysStock(): Promise<Record<string, DailyStock>> {
 
 /**
  * Staff sets/updates today's stock cap for an item. Upserts so it works
- * whether today's row already exists or not.
+ * whether today's row already exists or not. "Today" is the Manila date,
+ * matching Postgres `current_date` now that the database runs on Manila time.
  */
 export async function setTodaysStock(menuItemId: string, quantity: number): Promise<void> {
-  const today = new Date().toISOString().split("T")[0];
   const { error } = await supabase
     .from("menu_item_daily_stock")
     .upsert(
       {
         menu_item_id: menuItemId,
-        stock_date: today,
+        stock_date: todayManila(),
         initial_quantity: quantity,
         remaining_quantity: quantity,
       },
@@ -149,12 +155,11 @@ export async function setTodaysStock(menuItemId: string, quantity: number): Prom
 
 /** Removes today's cap entirely, making the item uncapped/unlimited again. */
 export async function clearTodaysStock(menuItemId: string): Promise<void> {
-  const today = new Date().toISOString().split("T")[0];
   const { error } = await supabase
     .from("menu_item_daily_stock")
     .delete()
     .eq("menu_item_id", menuItemId)
-    .eq("stock_date", today);
+    .eq("stock_date", todayManila());
 
   if (error) throw error;
 }

@@ -1,6 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Image, Text, TouchableOpacity, View } from "react-native";
+import { Image, Text, View } from "react-native";
 import { MenuItem } from "../../../types/menu";
+import AnimatedHeartButton from "../../shared/AnimatedHeartButton";
+import PressableScale from "../../shared/PressableScale";
 
 type Props = {
   item: MenuItem;
@@ -38,7 +40,7 @@ export default function MenuGridCard({
   const stockColor = isSoldOut ? "#D32F2F" : isLowStock ? "#F26B1D" : "#9CA3AF";
 
   return (
-    <TouchableOpacity
+    <PressableScale
       disabled={disabled}
       onPress={() => onPress(item)}
       className={`w-36 mr-3 bg-card rounded-2xl border border-border overflow-hidden ${disabled ? "opacity-50" : ""}`}
@@ -57,20 +59,13 @@ export default function MenuGridCard({
         )}
 
         {onToggleFavorite && (
-          <TouchableOpacity
-            onPress={(e) => {
-              e.stopPropagation();
-              onToggleFavorite(item);
-            }}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          <AnimatedHeartButton
+            active={isFavorite}
+            onToggle={() => onToggleFavorite(item)}
+            size={14}
+            inactiveColor="#fff"
             className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/30 items-center justify-center"
-          >
-            <Ionicons
-              name={isFavorite ? "heart" : "heart-outline"}
-              size={14}
-              color={isFavorite ? "#F26B1D" : "#fff"}
-            />
-          </TouchableOpacity>
+          />
         )}
 
         {isSoldOut && (
@@ -98,6 +93,6 @@ export default function MenuGridCard({
           </Text>
         </View>
       </View>
-    </TouchableOpacity>
+    </PressableScale>
   );
 }
