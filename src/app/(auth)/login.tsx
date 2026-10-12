@@ -1,8 +1,9 @@
 import { AntDesign, Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Dimensions,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -35,6 +36,9 @@ const HEADER_HEIGHT = 120;
 // Starting scale so the curtain's visible height matches the resting header
 // exactly, before it grows to fully cover the screen (scale 1).
 const INITIAL_SCALE = HEADER_HEIGHT / SCREEN_HEIGHT;
+
+// Logo size (fixed -- layout is never animated, see keyboard scroll below).
+const LOGO_SIZE = 250;
 
 function mapAuthError(message?: string) {
   if (!message) return "";
@@ -86,6 +90,23 @@ export default function Login() {
   const [transitioning, setTransitioning] = useState(false);
   const setUser = useAuthStore((s) => s.setUser);
   const setSuppressRedirect = useAuthStore((s) => s.setSuppressRedirect);
+
+  // When the keyboard opens, smoothly scroll the form up so the inputs and
+  // Login button stay visible. This is a plain native scroll -- nothing
+  // about the layout is animated, so touch areas always match what's drawn.
+  const scrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const showSub = Keyboard.addListener(showEvent, () => {
+      timer = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    });
+    return () => {
+      showSub.remove();
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
 
   // Shake target -- wraps the form fields + error text
   const shakeX = useSharedValue(0);
@@ -151,6 +172,7 @@ export default function Login() {
   // completion callback, not a guessed timeout.
   const celebrateAndGo = (user: AppUser, destination: string) => {
     setTransitioning(true);
+    Keyboard.dismiss();
 
     // Quick crossfade so the curvy header doesn't just pop away
     restingHeaderOpacity.value = withTiming(0, { duration: 150 });
@@ -176,6 +198,9 @@ export default function Login() {
       setError("Please enter your email and password.");
       return;
     }
+    // Close the keyboard first so the form settles back to full height
+    // before the error text appears and the button gets tapped again.
+    Keyboard.dismiss();
     setLoading(true);
     // Set before signIn() -- Supabase's own auth listener in RootLayout can
     // fire the instant the session changes, independently of this screen.
@@ -221,14 +246,17 @@ export default function Login() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
+      {/* Android is edge-to-edge, so the system won't resize the window for
+          the keyboard -- KeyboardAvoidingView has to do it ("height" on
+          Android, "padding" on iOS), same as the Add/Edit Item modal. */}
       <KeyboardAvoidingView
         className="flex-1"
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+        behavior="padding"
       >
         <ScrollView
+          ref={scrollRef}
           className="flex-1 bg-background"
-          contentContainerStyle={{ flexGrow: 1 }}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }}
           keyboardShouldPersistTaps="handled"
           scrollEnabled={!transitioning}
         >
@@ -246,7 +274,7 @@ export default function Login() {
             <Animated.Image
               entering={FadeInDown.duration(600).springify()}
               source={require("../../../assets/images/logo.png")}
-              style={{ width: 250, height: 250 }}
+              style={{ width: LOGO_SIZE, height: LOGO_SIZE }}
               resizeMode="contain"
             />
 
@@ -259,7 +287,7 @@ export default function Login() {
 
             <Animated.View
               entering={FadeInUp.delay(280).duration(500)}
-              style={[shakeStyle, { width: "100%" }]}
+              style={{ width: "100%" }}
             >
               <AuthInput
                 icon="mail-outline"
@@ -277,15 +305,21 @@ export default function Login() {
               />
 
               {error ? (
-                <Animated.Text
-                  entering={FadeInDown.duration(250)}
-                  className="text-danger text-sm mb-2"
-                >
-                  {error}
-                </Animated.Text>
+                <Animated.View entering={FadeInDown.duration(250)}>
+                  {/* Shake is applied to the message only. Shaking the whole
+                      form (inputs + buttons) left it unresponsive to touch
+                      on Android after the animation. */}
+                  <Animated.Text style={shakeStyle} className="text-danger text-sm mb-2">
+                    {error}
+                  </Animated.Text>
+                </Animated.View>
               ) : null}
 
-              <Pressable className="self-end mb-4">
+              <Pressable
+                className="self-end mb-4"
+                onPress={() => router.push("/(auth)/forgot-password")}
+                disabled={transitioning}
+              >
                 <Text className="text-primary font-semibold text-sm">
                   Forgot Password?
                 </Text>

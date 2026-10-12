@@ -98,6 +98,32 @@ export async function resendSignupOtp(email: string): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * Forgot-password step 1. Emails a 6-digit recovery code (requires the
+ * Supabase "Reset Password" email template to include {{ .Token }}).
+ * Supabase doesn't error for unknown emails, so this never reveals whether
+ * an account exists.
+ */
+export async function sendPasswordResetOtp(email: string): Promise<void> {
+  const { error } = await supabase.auth.resetPasswordForEmail(email);
+  if (error) throw error;
+}
+
+/**
+ * Forgot-password step 2. Verifying the code creates a real (recovery)
+ * session -- callers must set suppressRedirect first so RootLayout doesn't
+ * route into the app before the new password is saved. Step 3 is the
+ * existing changePassword(), then signOutUser().
+ */
+export async function verifyPasswordResetOtp(email: string, token: string): Promise<void> {
+  const { error } = await supabase.auth.verifyOtp({
+    email,
+    token,
+    type: "recovery",
+  });
+  if (error) throw error;
+}
+
 export async function signIn(email: string, password: string): Promise<AppUser> {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
