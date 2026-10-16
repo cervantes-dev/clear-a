@@ -17,6 +17,7 @@ export default function StaffLayout() {
       <Tabs.Screen name="dashboard" options={{ title: "Dashboard" }} />
       <Tabs.Screen name="orders" options={{ title: "Orders" }} />
       <Tabs.Screen name="menu" options={{ title: "Menu" }} />
+      <Tabs.Screen name="inventory" options={{ title: "Inventory" }} />
       <Tabs.Screen name="profile" options={{ title: "Profile" }} />
       <Tabs.Screen name="scan" options={{ href: null }} />
     </Tabs>

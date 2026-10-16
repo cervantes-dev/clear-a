@@ -8,6 +8,7 @@ import LoadingScreen from "../../components/shared/LoadingScreen";
 import UndoSnackbar from "../../components/shared/UndoSnackbar";
 import PickupInfoModal from "../../components/student/home/PickupInfoModal";
 import OrderCard from "../../components/student/orders/OrderCard";
+import { TAB_BAR_CLEARANCE } from "../../constants/layout";
 import { useMyOrders } from "../../hooks/useMyOrders";
 import { useCartStore } from "../../store/cartStore";
 import { Order } from "../../types/order";
@@ -185,7 +186,7 @@ export default function StudentOrdersScreen() {
         ) : (
           <ScrollView
             className="flex-1 px-4"
-            contentContainerStyle={{ paddingTop: 16, paddingBottom: 24 }}
+            contentContainerStyle={{ paddingTop: 16, paddingBottom: insets.bottom + TAB_BAR_CLEARANCE }}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
           >
             {displayedOrders.map((order) => (

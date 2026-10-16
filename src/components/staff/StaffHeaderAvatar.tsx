@@ -23,7 +23,7 @@ export default function StaffHeaderAvatar() {
 
   const handleSettings = () => {
     setMenuOpen(false);
-    router.push("/(staff)/settings");
+    router.push("/(staff)/profile");
   };
 
   const handleLogoutPress = () => {

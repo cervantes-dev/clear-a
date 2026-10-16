@@ -2,6 +2,7 @@ import InventoryItemRow, { LOW_STOCK_THRESHOLD } from "@/components/staff/invent
 import InventoryListSkeleton from "@/components/staff/inventory/InventoryListSkeleton";
 import SetStockModal from "@/components/staff/menu/SetStockModal";
 import StaffHeaderAvatar from "@/components/staff/StaffHeaderAvatar";
+import { TAB_BAR_CLEARANCE } from "@/constants/layout";
 import { getMenuItems } from "@/services/menu";
 import { clearTodaysStock, getTodaysStock, setTodaysStock } from "@/services/order";
 import { supabase } from "@/services/supabase";
@@ -25,7 +26,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type FilterKey = "all" | "soldOut" | "low" | "unlimited";
 
-const TAB_BAR_CLEARANCE = 64 + 40 + 24;
+
 
 function SectionLabel({ children }: { children: string }) {
   return (

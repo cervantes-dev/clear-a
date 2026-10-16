@@ -12,10 +12,11 @@ import OrderRow, { Order as OrderRowData } from "../../components/staff/dashboar
 import StaffNotificationSheet from "../../components/staff/dashboard/StaffNotificationSheet";
 import StatCard, { Stat } from "../../components/staff/dashboard/StatCard";
 import StaffHeaderAvatar from "../../components/staff/StaffHeaderAvatar";
+import { TAB_BAR_CLEARANCE } from "../../constants/layout";
 import { useAllOrders } from "../../hooks/useAllOrders";
 import { useAuthStore } from "../../store/authStore";
 import { Order, OrderStatus } from "../../types/order";
-import { lastManilaDays, todayManila, weekdayShort } from "../../utils/date";
+import { greetingManila, lastManilaDays, todayManila, weekdayShort } from "../../utils/date";
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   pending: "Pending",
@@ -24,7 +25,6 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   completed: "Completed",
   cancelled: "Cancelled",
 };
-const TAB_BAR_CLEARANCE = 64 + 40 + 24;
 
 type ChartKey = "revenue" | "orders" | "status";
 
@@ -232,7 +232,7 @@ export default function Dashboard() {
         </View>
 
         <Text className="text-white text-xl font-bold">
-          Good morning, {user?.name ?? "Staff"}! 👋
+          {greetingManila()}, {user?.name ?? "Staff"}! 👋
         </Text>
         <Text className="text-white/80 text-sm mt-1">Here's today's overview</Text>
       </View>

@@ -1,6 +1,8 @@
 import LoadingScreen from "@/components/shared/LoadingScreen";
 import OrderStatPill from "@/components/staff/orders/OrderStatPill";
 import StaffOrderCard from "@/components/staff/orders/StaffOrderCard";
+import StaffHeaderAvatar from "@/components/staff/StaffHeaderAvatar";
+import { TAB_BAR_CLEARANCE } from "@/constants/layout";
 import { useAllOrders } from "@/hooks/useAllOrders";
 import { OrderStatus } from "@/types/order";
 import { Ionicons } from "@expo/vector-icons";
@@ -11,8 +13,6 @@ import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type FilterKey = "pending" | "preparing" | "ready" | "history";
-
-const TAB_BAR_CLEARANCE = 64 + 40 + 24;
 
 export default function StaffOrdersScreen() {
     const router = useRouter();
@@ -61,15 +61,18 @@ export default function StaffOrdersScreen() {
                         <Text className="text-white text-2xl font-bold">Orders</Text>
                         <Text className="text-white/80 text-sm mt-1">Manage and update orders</Text>
                     </View>
-                    <TouchableOpacity
-                        onPress={() => router.push("/(staff)/scan")}
-                        className="flex-row items-center bg-white/15 rounded-full px-3 py-2"
-                        accessibilityRole="button"
-                        accessibilityLabel="Scan pickup QR code"
-                    >
-                        <Ionicons name="qr-code-outline" size={18} color="#fff" />
-                        <Text className="text-white text-xs font-bold ml-1.5">Scan</Text>
-                    </TouchableOpacity>
+                    <View className="flex-row items-center">
+                        <TouchableOpacity
+                            onPress={() => router.push("/(staff)/scan")}
+                            className="flex-row items-center bg-white/15 rounded-full px-3 py-2 mr-2"
+                            accessibilityRole="button"
+                            accessibilityLabel="Scan pickup QR code"
+                        >
+                            <Ionicons name="qr-code-outline" size={18} color="#fff" />
+                            <Text className="text-white text-xs font-bold ml-1.5">Scan</Text>
+                        </TouchableOpacity>
+                        <StaffHeaderAvatar />
+                    </View>
                 </View>
             </View>
 

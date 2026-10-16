@@ -59,7 +59,6 @@ export default function StudentLayout() {
         <Tabs.Screen name="favorites" options={{ title: "Favorites" }} />
         <Tabs.Screen name="profile" options={{ title: "Profile" }} />
         <Tabs.Screen name="cart" options={{ href: null }} />
-        <Tabs.Screen name="menu" options={{ href: null }} />
       </Tabs>
 
       {showClosedNotice && canteenStatus && (

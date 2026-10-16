@@ -29,3 +29,11 @@ export function weekdayShort(dateStr: string): string {
     .toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" })
     .slice(0, 3);
 }
+
+/** Time-of-day greeting based on the current hour in Manila, not the phone's timezone. */
+export function greetingManila(): string {
+  const hour = new Date(Date.now() + MANILA_OFFSET_MS).getUTCHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}

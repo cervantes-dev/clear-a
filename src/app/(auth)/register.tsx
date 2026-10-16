@@ -5,7 +5,6 @@ import {
   Dimensions,
   Image,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -211,12 +210,11 @@ export default function Register() {
     <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
       <KeyboardAvoidingView
         className="flex-1"
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+        behavior="padding"
       >
         <ScrollView
           className="flex-1 bg-background"
-          contentContainerStyle={{ flexGrow: 1 }}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }}
           keyboardShouldPersistTaps="handled"
           scrollEnabled={!transitioning}
         >
