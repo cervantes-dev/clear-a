@@ -1,6 +1,7 @@
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import { AppUser } from "../types/auth";
+import { unregisterPush } from "./push";
 import { supabase } from "./supabase";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -230,6 +231,8 @@ export async function completeStudentProfile(lrn: string): Promise<void> {
 }
 
 export async function signOutUser(): Promise<void> {
+  // Must run before signOut: the unregister RPC needs the user's session.
+  await unregisterPush();
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 }
