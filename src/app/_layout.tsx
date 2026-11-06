@@ -7,6 +7,7 @@ import "../global.css";
 import { getCurrentUser } from "../services/auth";
 import { supabase } from "../services/supabase";
 import { useAuthStore } from "../store/authStore";
+import { useFavoritesStore } from "../store/favoritesStore";
 
 export default function RootLayout() {
   const { user, isLoading, suppressRedirect, setUser } = useAuthStore();
@@ -96,6 +97,15 @@ export default function RootLayout() {
       router.replace("/(staff)/dashboard");
     }
   }, [isLoading, suppressRedirect, user, segments]);
+
+  // Load favorites for students on login; clear them on logout
+  useEffect(() => {
+    if (user?.role === "student") {
+      useFavoritesStore.getState().loadFavorites();
+    } else if (!user) {
+      useFavoritesStore.getState().reset();
+    }
+  }, [user?.id]);
 
   if (isLoading) {
     return <LoadingScreen />;

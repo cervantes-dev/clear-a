@@ -13,6 +13,7 @@ import SloganCard from "../../components/student/home/SloganCard";
 import FlyingCartAnimation from "../../components/student/menu/FlyingCartAnimation";
 import ItemDetailModal from "../../components/student/menu/ItemDetailModal";
 import TodaySpecialSkeleton from "../../components/student/skeleton/TodaySpecialSkeleton";
+import { TAB_BAR_CLEARANCE } from "../../constants/layout";
 import { useMyOrders } from "../../hooks/useMyOrders";
 import { useStudentMenu } from "../../hooks/useStudentMenu";
 import { useAuthStore } from "../../store/authStore";
@@ -23,7 +24,6 @@ import { MenuItem, MenuItemVariant } from "../../types/menu";
 import { deriveOrderNotifications } from "../../utils/notifications";
 
 const ACTIVE_STATUSES = ["pending", "preparing", "ready"];
-const TAB_BAR_CLEARANCE = 64 + 40 + 24;
 
 type SourceRect = { x: number; y: number; width: number; height: number };
 type PendingCommit = {
@@ -42,13 +42,6 @@ function getFirstName(fullName: string): string {
   const first = fullName.trim().split(/\s+/)[0] ?? "";
   if (first.length === 0) return "";
   return first[0].toUpperCase() + first.slice(1).toLowerCase();
-}
-
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 18) return "Good afternoon";
-  return "Good evening";
 }
 
 export default function StudentHomeScreen() {
@@ -80,6 +73,7 @@ export default function StudentHomeScreen() {
   const markAllSeen = useNotificationStore((state) => state.markAllSeen);
   const dismissedIds = useNotificationStore((state) => state.dismissedIds);
   const dismissNotification = useNotificationStore((state) => state.dismiss);
+  const notificationsLoaded = useNotificationStore((state) => state.loaded);
 
   const firstName = user ? getFirstName(user.name) : "";
   const avatarInitial = user?.name?.trim()?.[0]?.toUpperCase() ?? "?";
@@ -93,11 +87,15 @@ export default function StudentHomeScreen() {
     return all.filter((n) => !dismissedIds.has(n.id));
   }, [myOrders, dismissedIds]);
 
+  // Until the server state (dismissed ids + last seen time) has loaded,
+  // `lastSeenAt` is null and everything would count as unread -- show no
+  // badge instead of flashing a wrong number on launch.
   const unreadCount = useMemo(() => {
+    if (!notificationsLoaded) return 0;
     if (!lastSeenAt) return notifications.length;
     const seenTime = new Date(lastSeenAt).getTime();
     return notifications.filter((n) => new Date(n.timestamp).getTime() > seenTime).length;
-  }, [notifications, lastSeenAt]);
+  }, [notifications, lastSeenAt, notificationsLoaded]);
 
   const specials = menuItems.filter((i) => i.isSpecial && i.available);
 
@@ -180,10 +178,9 @@ export default function StudentHomeScreen() {
           className="flex-row items-center justify-between px-5"
           style={{ paddingTop: insets.top + 16 }}
         >
-          <View>
-            <Text className="text-text opacity-50 text-sm">{getGreeting()},</Text>
-            <Text className="text-text text-2xl font-bold">{firstName || "there"} 👋</Text>
-          </View>
+          <Text className="text-text text-2xl font-bold">
+            {firstName ? `Hi, ${firstName}` : "Welcome"} 👋
+          </Text>
 
           <View className="flex-row items-center">
             <TouchableOpacity

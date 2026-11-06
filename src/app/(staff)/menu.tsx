@@ -5,6 +5,7 @@ import ItemActionsSheet from "@/components/staff/menu/ItemActionsSheet";
 import MenuItemCard from "@/components/staff/menu/MenuItemCard";
 import MenuListSkeleton from "@/components/staff/menu/MenuListSkeleton";
 import StaffHeaderAvatar from "@/components/staff/StaffHeaderAvatar";
+import { TAB_BAR_CLEARANCE } from "@/constants/layout";
 import {
   addCategory,
   addMenuItem,
@@ -33,8 +34,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-const TAB_BAR_CLEARANCE = 64 + 40 + 24;
 
 export default function ManageMenu() {
   const insets = useSafeAreaInsets();

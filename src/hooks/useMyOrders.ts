@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AppState } from "react-native";
 import { getMyOrders, getOrderById } from "../services/order";
 import { supabase } from "../services/supabase";
 import { useAuthStore } from "../store/authStore";
@@ -11,15 +12,32 @@ export function useMyOrders() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    try {
-      setError(null);
-      const data = await getMyOrders();
-      setOrders(data);
-    } catch (err) {
-      console.error("Failed to load orders:", err);
-      setError("Couldn't load your orders. Pull down to try again.");
-    }
+  // Overlapping loads (foreground refetch + pull-to-refresh, or the dev
+  // double-mount) share one request instead of racing each other.
+  const inFlightRef = useRef<Promise<void> | null>(null);
+
+  // `silent` = background refetch: never shows an error banner over data the
+  // student is already looking at, since a failed background refresh isn't
+  // worth interrupting them for.
+  const load = useCallback((silent = false): Promise<void> => {
+    if (inFlightRef.current) return inFlightRef.current;
+
+    const run = (async () => {
+      try {
+        if (!silent) setError(null);
+        const data = await getMyOrders();
+        setOrders(data);
+        setError(null);
+      } catch (err) {
+        console.error("Failed to load orders:", err);
+        if (!silent) setError("Couldn't load your orders. Pull down to try again.");
+      }
+    })().finally(() => {
+      inFlightRef.current = null;
+    });
+
+    inFlightRef.current = run;
+    return run;
   }, []);
 
   useEffect(() => {
@@ -36,6 +54,17 @@ export function useMyOrders() {
     setRefreshing(false);
   }, [load]);
 
+  // Realtime connections don't survive the app being suspended, so any status
+  // change that happened while the phone was locked would be missed. Refetch
+  // quietly whenever the app comes back to the foreground.
+  useEffect(() => {
+    if (!userId) return;
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") load(true);
+    });
+    return () => sub.remove();
+  }, [userId, load]);
+
   // Realtime: any INSERT/UPDATE on this student's own orders patches local
   // state directly, no refetch needed for status-only changes.
   useEffect(() => {
@@ -48,8 +77,14 @@ export function useMyOrders() {
         { event: "*", schema: "public", table: "orders", filter: `student_id=eq.${userId}` },
         async (payload) => {
           if (payload.eventType === "INSERT") {
-            const fullOrder = await getOrderById((payload.new as any).id);
-            setOrders((prev) => [fullOrder, ...prev]);
+            try {
+              const fullOrder = await getOrderById((payload.new as any).id);
+              // The order may already be in the list (a load and the realtime
+              // event can both deliver it) -- never add it twice.
+              setOrders((prev) => (prev.some((o) => o.id === fullOrder.id) ? prev : [fullOrder, ...prev]));
+            } catch (err) {
+              console.error("Failed to fetch inserted order:", err);
+            }
           } else if (payload.eventType === "UPDATE") {
             const updated = payload.new as any;
             setOrders((prev) =>

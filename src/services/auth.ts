@@ -1,6 +1,7 @@
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import { AppUser } from "../types/auth";
+import { unregisterPush } from "./push";
 import { supabase } from "./supabase";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -95,6 +96,32 @@ export async function verifySignupOtp(email: string, token: string): Promise<App
 
 export async function resendSignupOtp(email: string): Promise<void> {
   const { error } = await supabase.auth.resend({ type: "signup", email });
+  if (error) throw error;
+}
+
+/**
+ * Forgot-password step 1. Emails a 6-digit recovery code (requires the
+ * Supabase "Reset Password" email template to include {{ .Token }}).
+ * Supabase doesn't error for unknown emails, so this never reveals whether
+ * an account exists.
+ */
+export async function sendPasswordResetOtp(email: string): Promise<void> {
+  const { error } = await supabase.auth.resetPasswordForEmail(email);
+  if (error) throw error;
+}
+
+/**
+ * Forgot-password step 2. Verifying the code creates a real (recovery)
+ * session -- callers must set suppressRedirect first so RootLayout doesn't
+ * route into the app before the new password is saved. Step 3 is the
+ * existing changePassword(), then signOutUser().
+ */
+export async function verifyPasswordResetOtp(email: string, token: string): Promise<void> {
+  const { error } = await supabase.auth.verifyOtp({
+    email,
+    token,
+    type: "recovery",
+  });
   if (error) throw error;
 }
 
@@ -204,6 +231,8 @@ export async function completeStudentProfile(lrn: string): Promise<void> {
 }
 
 export async function signOutUser(): Promise<void> {
+  // Must run before signOut: the unregister RPC needs the user's session.
+  await unregisterPush();
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 }

@@ -1,6 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Image, Text, TouchableOpacity, View } from "react-native";
+import { Image, Text, View } from "react-native";
 import { MenuItem } from "../../../types/menu";
+import AnimatedHeartButton from "../../shared/AnimatedHeartButton";
+import PressableScale from "../../shared/PressableScale";
 
 type Props = {
   item: MenuItem;
@@ -38,7 +40,7 @@ export default function HomeMenuListItem({
   const stockColor = isSoldOut ? "#D32F2F" : isLowStock ? "#F26B1D" : "#9CA3AF";
 
   return (
-    <TouchableOpacity
+    <PressableScale
       disabled={disabled}
       onPress={() => onPress(item)}
       className={`flex-row bg-card rounded-2xl mb-3 p-2.5 border border-border ${disabled ? "opacity-50" : ""}`}
@@ -63,19 +65,12 @@ export default function HomeMenuListItem({
             <Text className="text-sm font-semibold text-text flex-1 pr-2" numberOfLines={1}>
               {item.name}
             </Text>
-            <TouchableOpacity
-              onPress={(e) => {
-                e.stopPropagation();
-                onToggleFavorite(item);
-              }}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons
-                name={isFavorite ? "heart" : "heart-outline"}
-                size={18}
-                color={isFavorite ? "#F26B1D" : "#C9B8BD"}
-              />
-            </TouchableOpacity>
+            <AnimatedHeartButton
+              active={isFavorite}
+              onToggle={() => onToggleFavorite(item)}
+              size={18}
+              inactiveColor="#C9B8BD"
+            />
           </View>
 
           {subtitle.length > 0 ? (
@@ -102,7 +97,9 @@ export default function HomeMenuListItem({
           </View>
 
           {!disabled && (
-            <TouchableOpacity
+            <PressableScale
+              scaleTo={0.9}
+              haptic="tap"
               onPress={(e) => {
                 e.stopPropagation();
                 onQuickAdd(item);
@@ -111,10 +108,10 @@ export default function HomeMenuListItem({
             >
               <Ionicons name="add" size={14} color="#fff" />
               <Text className="text-white text-xs font-bold ml-1">Add</Text>
-            </TouchableOpacity>
+            </PressableScale>
           )}
         </View>
       </View>
-    </TouchableOpacity>
+    </PressableScale>
   );
 }

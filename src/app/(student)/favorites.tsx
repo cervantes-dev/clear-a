@@ -8,6 +8,7 @@ import LoadingScreen from "../../components/shared/LoadingScreen";
 import HomeMenuListItem from "../../components/student/home/HomeMenuListItem";
 import FlyingCartAnimation from "../../components/student/menu/FlyingCartAnimation";
 import ItemDetailModal from "../../components/student/menu/ItemDetailModal";
+import { TAB_BAR_CLEARANCE } from "../../constants/layout";
 import { useStudentMenu } from "../../hooks/useStudentMenu";
 import { useCartStore } from "../../store/cartStore";
 import { useFavoritesStore } from "../../store/favoritesStore";
@@ -25,8 +26,6 @@ type FlightState = {
   source: SourceRect;
   target: { x: number; y: number };
 };
-
-const TAB_BAR_CLEARANCE = 64 + 40 + 24;
 
 export default function FavoritesScreen() {
   const router = useRouter();

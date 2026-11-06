@@ -1,6 +1,8 @@
 import LoadingScreen from "@/components/shared/LoadingScreen";
 import OrderStatPill from "@/components/staff/orders/OrderStatPill";
 import StaffOrderCard from "@/components/staff/orders/StaffOrderCard";
+import StaffHeaderAvatar from "@/components/staff/StaffHeaderAvatar";
+import { TAB_BAR_CLEARANCE } from "@/constants/layout";
 import { useAllOrders } from "@/hooks/useAllOrders";
 import { OrderStatus } from "@/types/order";
 import { Ionicons } from "@expo/vector-icons";
@@ -63,17 +65,13 @@ export default function StaffOrdersScreen() {
                         <TouchableOpacity
                             onPress={() => router.push("/(staff)/scan")}
                             className="flex-row items-center bg-white/15 rounded-full px-3 py-2 mr-2"
+                            accessibilityRole="button"
+                            accessibilityLabel="Scan pickup QR code"
                         >
                             <Ionicons name="qr-code-outline" size={18} color="#fff" />
                             <Text className="text-white text-xs font-bold ml-1.5">Scan</Text>
                         </TouchableOpacity>
-
-                        <TouchableOpacity className="w-10 h-10 items-center justify-center relative" hitSlop={8}>
-                            <Ionicons name="notifications-outline" size={22} color="#fff" />
-                            <View className="absolute top-1 right-1 w-4 h-4 rounded-full bg-danger items-center justify-center">
-                                <Text className="text-white text-[9px] font-bold">3</Text>
-                            </View>
-                        </TouchableOpacity>
+                        <StaffHeaderAvatar />
                     </View>
                 </View>
             </View>
@@ -139,7 +137,7 @@ export default function StaffOrdersScreen() {
                 ) : (
                     <ScrollView
                         className="flex-1 px-4 pt-4"
-                        contentContainerStyle={{ paddingBottom: 24 }}
+                        contentContainerStyle={{ paddingBottom: insets.bottom + TAB_BAR_CLEARANCE }}
                         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
                     >
                         {filtered.map((order) => (

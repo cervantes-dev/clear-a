@@ -19,6 +19,7 @@ export type Order = {
   orderDate: string | null;
   status: OrderStatus;
   total: number;
+  note: string | null; // new -- optional message from the student to the canteen
   createdAt: string;
   readyAt: string | null;
   pickupDeadline: string | null;
@@ -37,6 +38,7 @@ export type PlaceOrderItemInput = {
 
 export type PlaceOrderInput = {
   items: PlaceOrderItemInput[];
+  note?: string | null; // new
 };
 
 // Per-item stock, mirrors menu_item_daily_stock. null = uncapped/unlimited for that item today.
@@ -46,4 +48,3 @@ export type DailyStock = {
   initialQuantity: number;
   remainingQuantity: number;
 };
-

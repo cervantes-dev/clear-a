@@ -1,3 +1,4 @@
+import * as Haptics from "expo-haptics";
 import { ActivityIndicator, Pressable, Text } from "react-native";
 
 interface Props {
@@ -21,8 +22,16 @@ export default function PrimaryButton({
   return (
     <Pressable
       onPress={onPress}
+      // Light tick the instant the finger lands, so a tap is felt even when
+      // the finger hides the button. No animated transform involved.
+      onPressIn={() => {
+        if (!isDisabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }}
       disabled={isDisabled}
-      className={`h-[50px] rounded-xl items-center justify-center mt-2 ${
+      android_ripple={{
+        color: isOutline ? "rgba(128,0,32,0.15)" : "rgba(255,255,255,0.3)",
+      }}
+      className={`h-[50px] rounded-xl items-center justify-center mt-2 overflow-hidden active:opacity-80 ${
         isDisabled
           ? "bg-disabled border-disabled"
           : isOutline

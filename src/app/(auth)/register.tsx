@@ -5,7 +5,6 @@ import {
   Dimensions,
   Image,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -211,12 +210,11 @@ export default function Register() {
     <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
       <KeyboardAvoidingView
         className="flex-1"
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+        behavior="padding"
       >
         <ScrollView
           className="flex-1 bg-background"
-          contentContainerStyle={{ flexGrow: 1 }}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }}
           keyboardShouldPersistTaps="handled"
           scrollEnabled={!transitioning}
         >
@@ -300,19 +298,13 @@ export default function Register() {
                 secureTextEntry
               />
 
-              <Text className="text-text font-medium mb-2">I am a</Text>
-              <View className="flex-row items-center border border-border rounded-xl bg-card py-3 px-4 mb-4">
-                <Ionicons name="school-outline" size={18} color="#800020" />
-                <Text className="ml-2 font-semibold text-text">Student</Text>
-              </View>
-
               {error ? (
                 <Text className="text-danger text-sm mb-3">{error}</Text>
               ) : null}
 
               <Pressable
                 onPress={() => setAgreed(!agreed)}
-                className="flex-row items-start mb-5"
+                className="flex-row items-start mb-5 mt-1"
               >
                 <View
                   className={`w-5 h-5 rounded border items-center justify-center mr-2 mt-0.5 ${agreed ? "bg-primary border-primary" : "border-border bg-card"
