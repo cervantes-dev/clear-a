@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "813401038701",
+    "project_id": "clear-a-b3877",
+    "storage_bucket": "clear-a-b3877.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:813401038701:android:5d00142e7532b868850464",
+        "android_client_info": {
+          "package_name": "com.bossd.CLEARA"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDpjJceHOZeTfTnkb-1fohAuK6npkZvr0s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
