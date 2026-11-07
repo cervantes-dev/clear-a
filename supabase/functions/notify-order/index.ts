@@ -83,14 +83,21 @@ async function tokensFor(note: Note, studentId: string): Promise<string[]> {
 
 Deno.serve(async (req) => {
   if (req.headers.get("x-webhook-secret") !== Deno.env.get("WEBHOOK_SECRET")) {
+    console.log("notify-order: 401 (missing or wrong x-webhook-secret)");
     return new Response("unauthorized", { status: 401 });
   }
 
   const hook = (await req.json()) as Hook;
+  console.log("notify-order: received", hook.type, hook.old_record?.status, "->", hook.record?.status);
+
   const note = buildNote(hook);
-  if (!note) return new Response("skipped");
+  if (!note) {
+    console.log("notify-order: skipped (no notification for this change)");
+    return new Response("skipped");
+  }
 
   const tokens = await tokensFor(note, hook.record.student_id);
+  console.log(`notify-order: ${tokens.length} token(s) for audience=${note.audience}`);
   if (tokens.length === 0) return new Response("no tokens");
 
   // Expo accepts up to 100 messages per request -- plenty for a canteen's staff.
@@ -110,6 +117,7 @@ Deno.serve(async (req) => {
     body: JSON.stringify(messages),
   });
   const { data: tickets } = await res.json();
+  console.log("notify-order: expo tickets:", JSON.stringify(tickets));
 
   // Prune tokens for uninstalled apps so they don't pile up.
   const dead: string[] = [];
