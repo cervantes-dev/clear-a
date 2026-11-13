@@ -276,6 +276,7 @@ export default function StudentHomeScreen() {
               categories={categories}
               selectedId={selectedCategoryId}
               onSelect={setSelectedCategoryId}
+              showIcons
             />
           </ScrollView>
         </View>
