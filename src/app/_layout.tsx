@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { Platform } from "react-native";
 import LoadingScreen from "../components/shared/LoadingScreen";
 import "../global.css";
+import { usePushNotifications } from "../hooks/usePushNotifications";
 import { getCurrentUser } from "../services/auth";
 import { supabase } from "../services/supabase";
 import { useAuthStore } from "../store/authStore";
@@ -13,6 +14,10 @@ export default function RootLayout() {
   const { user, isLoading, suppressRedirect, setUser } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
+
+  // Registers the device for push once a user is signed in, and routes
+  // notification taps. Must stay above the isLoading early return below.
+  usePushNotifications();
 
   // Hide the Android system navigation bar on launch. On modern Android
   // (edge-to-edge enforced), the OS automatically handles temporary
